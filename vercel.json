@@ -14,7 +14,7 @@
   ],
   "functions": {
     "frontend/vercel_app.py": {
-      "excludeFiles": "{backend,MaTeX,MateMaTeX,MaTultimate,data,output,venv}/**"
+      "excludeFiles": "{backend,data,output,venv}/**"
     }
   }
 }
