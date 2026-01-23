@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+crewai
+langchain
+langchain-google-genai
+python-dotenv
+python-docx
+python-pptx
+pydantic
+sqlite3
