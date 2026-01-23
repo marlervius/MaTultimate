@@ -1,0 +1,11 @@
+MaTeX/
+MateMaTeX/
+MaTultimate/
+backend/
+data/
+output/
+venv/
+.env
+*.pdf
+*.docx
+*.pptx
