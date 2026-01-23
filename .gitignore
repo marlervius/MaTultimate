@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+output/
+data/*.db
+data/*.sqlite
+.vscode/
+.cursor/
+venv/
+node_modules/
+*.pdf
+*.tex
+*.typ
+*.docx
+*.pptx
