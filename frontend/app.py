@@ -4,9 +4,8 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Vi importerer curriculum data fra den opprinnelige mappen inntil videre
-# I en full produksjonssetting ville dette vært et API-kall
-from MateMaTeX.src.curriculum import TOPIC_LIBRARY, COMPETENCY_GOALS
+# Vi importerer curriculum data
+from src.curriculum import TOPIC_LIBRARY, COMPETENCY_GOALS
 
 load_dotenv()
 

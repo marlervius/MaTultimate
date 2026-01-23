@@ -3,7 +3,7 @@ import sqlite3
 import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from src.models.core import MaterialConfig
+from app.models.core import MaterialConfig
 
 DB_PATH = "data/matultimate.db"
 

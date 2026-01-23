@@ -1,7 +1,7 @@
 import os
 from crewai import Agent, LLM
-from src.models.core import MaterialConfig
-from MateMaTeX.src.curriculum import format_boundaries_for_prompt, get_grade_boundaries
+from app.models.core import MaterialConfig
+from app.core.curriculum import format_boundaries_for_prompt, get_grade_boundaries
 
 class MaTultimateAgents:
     def __init__(self):

@@ -3,8 +3,8 @@ import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from crewai import Crew, Process
-from src.models.core import MaterialConfig, MathBlock
-from src.agents.core_agents import MaTultimateAgents
+from app.models.core import MaterialConfig, MathBlock
+from app.services.agents import MaTultimateAgents
 
 class MaTultimateOrchestrator:
     """
