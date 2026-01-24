@@ -1,7 +1,10 @@
 import os
 from crewai import Agent, LLM
-from app.models.core import MaterialConfig
+from app.models.config import MaterialConfig
 from app.core.curriculum import format_boundaries_for_prompt, get_grade_boundaries
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class MaTultimateAgents:
     def __init__(self):
@@ -15,7 +18,7 @@ class MaTultimateAgents:
         )
 
     def pedagogue(self, config: MaterialConfig) -> Agent:
-        grade_context = format_boundaries_for_prompt(config.grade)
+        grade_context = format_boundaries_for_prompt(config.klassetrinn)
         
         if config.differentiation == "three_levels":
             backstory = (
@@ -23,9 +26,9 @@ class MaTultimateAgents:
                 "=== OPPGAVE ===\n"
                 "Lag en pedagogisk plan for tre differensierte nivåer av et arbeidsark.\n"
                 "Alle nivåer skal dekke SAMME kompetansemål, men med ulik kompleksitet.\n\n"
-                f"KOMPETANSEMÅL: {', '.join(config.competency_goals)}\n"
-                f"KLASSETRINN: {config.grade}\n"
-                f"EMNE: {config.topic}\n\n"
+                f"KOMPETANSEMÅL: {config.kompetansemaal}\n"
+                f"KLASSETRINN: {config.klassetrinn}\n"
+                f"EMNE: {config.emne}\n\n"
                 "=== DIFFERENSIERINGSPRINSIPPER ===\n\n"
                 "## NIVÅ 1 – Grunnleggende\n"
                 "Målgruppe: Elever som trenger ekstra støtte eller er i startfasen av å forstå konseptet.\n"
@@ -58,9 +61,9 @@ class MaTultimateAgents:
         else:
             backstory = (
                 "Du er en ledende ekspert på norsk matematikkdidaktikk og læreplanen LK20. "
-                "Din spesialitet er å designe læringsløp som fremmer dybdelæring, utforsking og forståelse.\n\n"
+                "Du er spesialitet er å designe læringsløp som fremmer dybdelæring, utforsking og forståelse.\n\n"
                 "=== KRITISK: NIVÅTILPASNING ===\n"
-                f"Du må planlegge innholdet spesifikt for {config.grade}. "
+                f"Du må planlegge innholdet spesifikt for {config.klassetrinn}. "
                 "Dette innebærer:\n"
                 "- Sikre at progresjonen er logisk (fra enkel til kompleks).\n"
                 "- Inkludere elementer av utforsking og problemløsning.\n"
@@ -71,7 +74,7 @@ class MaTultimateAgents:
 
         return Agent(
             role="Pedagogisk arkitekt (LK20)",
-            goal=f"Lag en pedagogisk optimal disposisjon for et {config.material_type} om {config.topic} for {config.grade}.",
+            goal=f"Lag en pedagogisk optimal disposisjon for et matematikkmateriell om {config.emne} for {config.klassetrinn}.",
             backstory=backstory,
             llm=self.llm,
             verbose=True,
@@ -79,7 +82,7 @@ class MaTultimateAgents:
         )
 
     def mathematician(self, config: MaterialConfig) -> Agent:
-        is_latex = config.output_format == "latex"
+        is_latex = config.document_format == "latex"
         format_name = "LaTeX" if is_latex else "Typst"
         
         if config.differentiation == "three_levels":
@@ -152,7 +155,7 @@ class MaTultimateAgents:
                 "Du er ekspert på å forklare komplekse konsepter på en forståelig måte for elever.\n\n"
                 "=== VIKTIG: OUTPUT-FORMAT ===\n"
                 f"Du skal returnere KUN rå {format_name}-kode. \n"
-                "IKKE bruk markdown code fences (som ```latex eller ```typst).\n"
+                "IKKE bruk markdown code fences (```latex eller ```typst).\n"
                 "IKKE inkluder forklarende tekst før eller etter koden.\n"
                 "Output skal kunne sendes direkte til en kompilator.\n\n"
                 "=== DINE REGLER ===\n"
@@ -160,12 +163,12 @@ class MaTultimateAgents:
                 "=== MATEMATISK RIGOR ===\n"
                 "- Bruk korrekt notasjon.\n"
                 "- Sørg for at alle mellomregninger i eksempler og løsninger er korrekte.\n"
-                f"- Tilpass kompleksiteten til {config.grade}."
+                f"- Tilpass kompleksiteten til {config.klassetrinn}."
             )
 
         return Agent(
             role="Matematiker og innholdsprodusent",
-            goal=f"Skriv det matematiske innholdet for {config.topic} i {format_name}-format.",
+            goal=f"Skriv det matematiske innholdet for {config.emne} i {format_name}-format.",
             backstory=backstory,
             llm=self.llm,
             verbose=True,
@@ -173,7 +176,7 @@ class MaTultimateAgents:
         )
 
     def editor(self, config: MaterialConfig) -> Agent:
-        format_name = "LaTeX" if config.output_format == "latex" else "Typst"
+        format_name = "LaTeX" if config.document_format == "latex" else "Typst"
         
         backstory = (
             "Du er en kvalitetskontrollør for matematiske dokumenter.\n\n"
@@ -211,7 +214,7 @@ class MaTultimateAgents:
         )
 
     def solution_writer(self, config: MaterialConfig) -> Agent:
-        is_latex = config.output_format == "latex"
+        is_latex = config.document_format == "latex"
         format_name = "LaTeX" if is_latex else "Typst"
         
         if not is_latex: # Typst solution prompt
@@ -237,7 +240,7 @@ class MaTultimateAgents:
                 "   - Forklar HVOR feilen ligger og HVORFOR det er feil\n\n"
                 "=== OUTPUTFORMAT (Typst) ===\n"
                 "#set text(size: 10pt)\n"
-                f"#heading(level: 1)[Fasit – {config.topic}]\n"
+                f"#heading(level: 1)[Fasit – {config.emne}]\n"
                 f"#text(style: \"italic\", fill: gray)[Kun for lærerbruk. Generert {datetime.now().strftime('%d.%m.%Y')}.]\n\n"
                 "#v(1em)\n\n"
                 "#heading(level: 2)[Nivå 1 – Grunnleggende]\n\n"
@@ -255,7 +258,7 @@ class MaTultimateAgents:
                 "- VIS ALLTID UTREGNINGEN (steg-for-steg).\n"
                 "- Forklar tankegangen ved overganger.\n"
                 "- For tekstoppgaver: Sett opp regnestykket, vis utregning og svar med hel setning.\n"
-                "- Overskrift: \\section*{Fasit – " + config.topic + "}\n"
+                "- Overskrift: \\section*{Fasit – " + config.emne + "}\n"
                 "- Inkluder 'Kun for lærerbruk' og dato.\n\n"
                 "=== KRITISK ===\n"
                 "- Returner KUN rå LaTeX-kode\n"
