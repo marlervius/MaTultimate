@@ -159,6 +159,10 @@ def main():
             value="Middels"
         )
 
+        st.markdown("### 🎯 Differensiering")
+        use_three_levels = st.toggle("Generer med tre nivåer", value=False, help="Lager tre varianter av arket: Grunnleggende, Middels og Utfordring.")
+        differentiation = "three_levels" if use_three_levels else "single"
+
     # --- MAIN CONTENT ---
     
     # Hero Section
@@ -206,22 +210,23 @@ def main():
             if not final_topic:
                 st.error("Vennligst velg eller skriv et tema.")
             else:
-                config = {
-                    "title": f"{final_topic} - {grade}",
-                    "grade": grade,
-                    "topic": final_topic,
-                    "material_type": material_type,
-                    "include_theory": include_theory,
-                    "include_examples": include_examples,
-                    "include_exercises": include_exercises,
-                    "include_solutions": include_solutions,
-                    "num_exercises": num_exercises,
-                    "difficulty": difficulty,
-                    "output_format": output_format,
-                    "competency_goals": selected_goals,
-                    "custom_instructions": custom_instructions
-                }
-                
+                    config = {
+                        "title": f"{final_topic} - {grade}",
+                        "grade": grade,
+                        "topic": final_topic,
+                        "material_type": material_type,
+                        "include_theory": include_theory,
+                        "include_examples": include_examples,
+                        "include_exercises": include_exercises,
+                        "include_solutions": include_solutions,
+                        "num_exercises": num_exercises,
+                        "difficulty": difficulty,
+                        "differentiation": differentiation,
+                        "output_format": output_format,
+                        "competency_goals": selected_goals,
+                        "custom_instructions": custom_instructions
+                    }
+
                 with st.spinner("💎 MaTultimate AI-teamet utformer innholdet..."):
                     try:
                         response = requests.post(f"{API_URL}/generate", json=config)

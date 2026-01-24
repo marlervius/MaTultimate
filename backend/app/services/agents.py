@@ -17,6 +17,17 @@ class MaTultimateAgents:
     def pedagogue(self, config: MaterialConfig) -> Agent:
         grade_context = format_boundaries_for_prompt(config.grade)
         
+        differentiation_instruction = ""
+        if config.differentiation == "three_levels":
+            differentiation_instruction = (
+                "\n=== DIFFERENSIERING: TRE NIVÅER ===\n"
+                "Du skal lage en plan som dekker TRE nivåer for de samme kompetansemålene:\n"
+                "1. NIVÅ 1 (Grunnleggende): Færre steg, enklere tall, mer støtte/hints, gjerne utfylling.\n"
+                "2. NIVÅ 2 (Middels): Standard nivå for trinnet.\n"
+                "3. NIVÅ 3 (Utfordring): Flere steg, mer komplekse tall, krever kombinasjon av konsepter.\n"
+                "Sørg for at hvert nivå har en tydelig overskrift i planen din."
+            )
+
         backstory = (
             "Du er en ledende ekspert på norsk matematikkdidaktikk og læreplanen LK20. "
             "Din spesialitet er å designe læringsløp som fremmer dybdelæring, utforsking og forståelse.\n\n"
@@ -26,7 +37,8 @@ class MaTultimateAgents:
             "- Sikre at progresjonen er logisk (fra enkel til kompleks).\n"
             "- Inkludere elementer av utforsking og problemløsning.\n"
             "- Velge relevante kompetansemål fra LK20.\n\n"
-            f"{grade_context}\n\n"
+            f"{grade_context}\n"
+            f"{differentiation_instruction}\n\n"
             "Du skal produsere en detaljert plan som matematikeren kan bruke for å skrive innholdet."
         )
 
@@ -43,6 +55,21 @@ class MaTultimateAgents:
         is_latex = config.output_format == "latex"
         format_name = "LaTeX" if is_latex else "Typst"
         
+        differentiation_formatting = ""
+        if config.differentiation == "three_levels":
+            if is_latex:
+                differentiation_formatting = (
+                    "\n=== FORMATERING FOR TRE NIVÅER ===\n"
+                    "Start hvert nivå på en ny side med \\newpage.\n"
+                    "Bruk en tydelig overskrift for hvert nivå: \\section*{Nivå 1: Grunnleggende}, osv.\n"
+                )
+            else:
+                differentiation_formatting = (
+                    "\n=== FORMATERING FOR TRE NIVÅER ===\n"
+                    "Start hvert nivå på en ny side med #pagebreak().\n"
+                    "Bruk en tydelig overskrift for hvert nivå: = Nivå 1: Grunnleggende, osv.\n"
+                )
+
         # Formatting rules based on format
         if is_latex:
             format_rules = (
@@ -69,7 +96,8 @@ class MaTultimateAgents:
             "IKKE inkluder forklarende tekst før eller etter koden.\n"
             "Output skal kunne sendes direkte til en kompilator.\n\n"
             "=== DINE REGLER ===\n"
-            f"{format_rules}\n\n"
+            f"{format_rules}\n"
+            f"{differentiation_formatting}\n\n"
             "=== MATEMATISK RIGOR ===\n"
             "- Bruk korrekt notasjon.\n"
             "- Sørg for at alle mellomregninger i eksempler og løsninger er korrekte.\n"

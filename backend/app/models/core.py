@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
 class MaterialConfig(BaseModel):
@@ -14,6 +14,7 @@ class MaterialConfig(BaseModel):
     include_graphs: bool = True
     num_exercises: int = 10
     difficulty: str = "Middels"
+    differentiation: Literal["single", "three_levels"] = "single"
     language: str = "no"
     output_format: str = "latex" # 'latex' or 'typst'
     competency_goals: List[str] = []
