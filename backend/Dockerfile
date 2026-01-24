@@ -8,7 +8,12 @@ RUN apt-get update && apt-get install -y \
     texlive-fonts-recommended \
     dvipng \
     curl \
-    && curl -L https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ --strip-components=1 -C /usr/local/bin typst-x86_64-unknown-linux-musl/typst \
+    xz-utils \
+    && mkdir -p /tmp/typst \
+    && curl -L https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ -C /tmp/typst \
+    && mv /tmp/typst/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst \
+    && chmod +x /usr/local/bin/typst \
+    && rm -rf /tmp/typst \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
