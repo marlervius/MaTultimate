@@ -76,6 +76,26 @@ class MaterialConfig(BaseModel):
             raise ValueError("Kompetansemål must be a full sentence")
         return v.strip()
     
+    @property
+    def grade(self) -> str:
+        """Alias for bakoverkompatibilitet med eldre kode."""
+        return self.klassetrinn
+
+    @property
+    def topic(self) -> str:
+        """Alias for bakoverkompatibilitet."""
+        return self.emne
+
+    @property
+    def competency_goals(self) -> list[str]:
+        """Alias for bakoverkompatibilitet (returnerer som liste)."""
+        return [self.kompetansemaal]
+
+    @property
+    def output_format(self) -> str:
+        """Alias for bakoverkompatibilitet."""
+        return self.document_format.value
+
     def get_output_filename(self) -> str:
         """Generer filnavn basert på konfigurasjon."""
         date_str = datetime.now().strftime("%Y%m%d")
