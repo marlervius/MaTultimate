@@ -88,8 +88,12 @@ class IntelligentOrchestrator:
         pedagog = agent_factory.pedagogue(config)
         matematiker = agent_factory.mathematician(config)
         redaktor = agent_factory.editor(config)
+        
+        # Hent LLM fra agent_factory for å bruke i FigurAgent
+        figur_agent_instance = FigurAgent(llm=agent_factory.llm)
+        figur_agent = figur_agent_instance.get_agent()
 
-        agents = [pedagog, matematiker, redaktor]
+        agents = [pedagog, matematiker, redaktor, figur_agent]
 
         task1 = Task(
             description=f"Lag en pedagogisk plan for {config.emne} på nivå {config.klassetrinn}.",
