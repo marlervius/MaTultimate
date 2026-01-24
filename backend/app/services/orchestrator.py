@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from crewai import Crew, Process
 from app.models.core import MaterialConfig, MathBlock
 from app.services.agents import MaTultimateAgents
+from app.core.sanitizers import strip_markdown_fences
 
 class MaTultimateOrchestrator:
     """
@@ -72,9 +73,10 @@ class MaTultimateOrchestrator:
         
         # 4. Process result
         raw_content = result.raw if hasattr(result, 'raw') else str(result)
+        clean_content = strip_markdown_fences(raw_content)
         
         return {
-            "content": raw_content,
+            "content": clean_content,
             "format": config.output_format,
             "timestamp": datetime.now().isoformat(),
             "config": config.model_dump()
