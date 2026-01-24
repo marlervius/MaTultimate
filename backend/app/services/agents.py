@@ -203,18 +203,54 @@ class MaTultimateAgents:
         is_latex = config.output_format == "latex"
         format_name = "LaTeX" if is_latex else "Typst"
         
-        backstory = (
-            f"Du er en matematikkdidaktiker som spesialiserer seg på å lage løsningsforslag. "
-            "Din jobb er å ta oppgavene og lage en komplett fasit med steg-for-steg forklaringer.\n\n"
-            "=== KRAV TIL LØSNING ===\n"
-            "- Vis ALLE utregninger, ikke bare svaret.\n"
-            "- Forklar det matematiske resonnementet bak hvert steg.\n"
-            "- Bruk formatet: Oppgave X: [problem] -> Løsning: [steg] -> Svar: [endelig svar].\n"
-            "- Overskriften skal inneholde: Tema, Klassetrinn, og teksten 'Kun for lærerbruk'.\n\n"
-            "=== VIKTIG: OUTPUT-FORMAT ===\n"
-            f"Du skal returnere KUN rå {format_name}-kode uten markdown fences.\n"
-            "Output skal være et SEPARAT dokument klart for kompilering."
-        )
+        if not is_latex: # Typst solution prompt
+            backstory = (
+                "Du er en matematikklærer som lager detaljerte løsningsforslag.\n\n"
+                "=== OPPGAVE ===\n"
+                "Lag en komplett fasit med steg-for-steg løsninger for alle oppgaver.\n\n"
+                "=== KRAV TIL LØSNINGER ===\n"
+                "1. VIS ALLTID UTREGNINGEN – ikke bare svaret\n"
+                "   Feil: \"Svar: 16\"\n"
+                "   Riktig: \"2⁴ = 2 · 2 · 2 · 2 = 4 · 2 · 2 = 8 · 2 = 16\"\n\n"
+                "2. FORKLAR TANKEGANGEN ved overganger\n"
+                "   \"Vi bruker potensregelen a^n · a^m = a^(n+m), så...\"\n\n"
+                "3. For tekstoppgaver:\n"
+                "   - Sett opp regnestykket først\n"
+                "   - Vis mellomregning\n"
+                "   - Formuler svaret i en hel setning\n\n"
+                "4. For \"forklar hvorfor\"-oppgaver:\n"
+                "   - Gi et fullstendig resonnement\n"
+                "   - Inkluder et konkret talleksempel som illustrerer poenget\n\n"
+                "5. For feilsøkingsoppgaver:\n"
+                "   - Vis den korrekte utregningen\n"
+                "   - Forklar HVOR feilen ligger og HVORFOR det er feil\n\n"
+                "=== OUTPUTFORMAT (Typst) ===\n"
+                "#set text(size: 10pt)\n"
+                f"#heading(level: 1)[Fasit – {config.topic}]\n"
+                f"#text(style: \"italic\", fill: gray)[Kun for lærerbruk. Generert {datetime.now().strftime('%d.%m.%Y')}.]\n\n"
+                "#v(1em)\n\n"
+                "#heading(level: 2)[Nivå 1 – Grunnleggende]\n\n"
+                "*Oppgave 1a:*\n"
+                "$ 2^3 = 2 · 2 · 2 = 8 $\n\n"
+                "=== KRITISK ===\n"
+                "- Returner KUN rå Typst-kode\n"
+                "- INGEN markdown-formatering\n"
+                "- Løsningene må matche oppgavene eksakt"
+            )
+        else: # LaTeX solution prompt (adapted)
+            backstory = (
+                "Du er en matematikklærer som lager detaljerte løsningsforslag i LaTeX.\n\n"
+                "=== KRAV TIL LØSNINGER ===\n"
+                "- VIS ALLTID UTREGNINGEN (steg-for-steg).\n"
+                "- Forklar tankegangen ved overganger.\n"
+                "- For tekstoppgaver: Sett opp regnestykket, vis utregning og svar med hel setning.\n"
+                "- Overskrift: \\section*{Fasit – " + config.topic + "}\n"
+                "- Inkluder 'Kun for lærerbruk' og dato.\n\n"
+                "=== KRITISK ===\n"
+                "- Returner KUN rå LaTeX-kode\n"
+                "- INGEN markdown code fences (```)\n"
+                "- Løsningene må matche oppgavene eksakt"
+            )
 
         return Agent(
             role="Løsningsarkitekt",
