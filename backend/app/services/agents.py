@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from app.prompts.vgs_agents import VGS_PEDAGOGUE_PROMPT, VGS_MATHEMATICIAN_PROMPT
+from app.agents.figur_agent import FigurAgent
+
 class MaTultimateAgents:
     def __init__(self):
         model = os.getenv("LLM_MODEL", "gemini-2.0-flash")
@@ -17,6 +20,7 @@ class MaTultimateAgents:
             api_key=api_key,
             temperature=0.4
         )
+        self.figur_factory = FigurAgent()
 
     def pedagogue(self, config: MaterialConfig) -> Agent:
         # Use getattr to safely access properties or fields
@@ -26,10 +30,14 @@ class MaTultimateAgents:
         if isinstance(kompetansemaal, list):
             kompetansemaal = ", ".join(kompetansemaal)
 
-        grade_context = format_boundaries_for_prompt(klassetrinn)
+        is_vgs = any(v in str(klassetrinn).lower() for v in ["vg", "r1", "r2", "s1", "s2", "1t", "1p"])
+        vgs_context = VGS_PEDAGOGUE_PROMPT if is_vgs else ""
+
+        grade_context = format_boundaries_for_prompt(str(klassetrinn))
         
         if config.differentiation == "three_levels":
             backstory = (
+                f"{vgs_context}\n\n"
                 "Du er en erfaren matematikklærer med ekspertise i tilpasset opplæring etter Kunnskapsløftet (LK20).\n\n"
                 "=== OPPGAVE ===\n"
                 "Lag en pedagogisk plan for tre differensierte nivåer av et arbeidsark.\n"
@@ -68,8 +76,9 @@ class MaTultimateAgents:
             )
         else:
             backstory = (
+                f"{vgs_context}\n\n"
                 "Du er en ledende ekspert på norsk matematikkdidaktikk og læreplanen LK20. "
-                "Du er spesialitet er å designe læringsløp som fremmer dybdelæring, utforsking og forståelse.\n\n"
+                "Din spesialitet er å designe læringsløp som fremmer dybdelæring, utforsking og forståelse.\n\n"
                 "=== KRITISK: NIVÅTILPASNING ===\n"
                 f"Du må planlegge innholdet spesifikt for {klassetrinn}. "
                 "Dette innebærer:\n"
@@ -99,10 +108,13 @@ class MaTultimateAgents:
         is_latex = doc_format == "latex"
         format_name = "LaTeX" if is_latex else "Typst"
         
+        is_vgs = any(v in str(klassetrinn).lower() for v in ["vg", "r1", "r2", "s1", "s2", "1t", "1p"])
+        vgs_context = VGS_MATHEMATICIAN_PROMPT if is_vgs else ""
+
         if config.differentiation == "three_levels":
             if not is_latex: # Typst differentiation prompt
-                # ... (rest of the backstory remains the same)
                 backstory = (
+                    f"{vgs_context}\n\n"
                     "Du er en teknisk skribent som konverterer pedagogiske planer til kompilerbar kode.\n\n"
                     "=== FORMATERINGSKRAV FOR TYPST ===\n"
                     "1. Bruk page breaks mellom nivåer: #pagebreak()\n"
@@ -136,6 +148,7 @@ class MaTultimateAgents:
                 )
             else: # LaTeX differentiation prompt (adapted from your Typst requirements)
                 backstory = (
+                    f"{vgs_context}\n\n"
                     "Du er en teknisk skribent som konverterer pedagogiske planer til kompilerbar LaTeX-kode.\n\n"
                     "=== FORMATERINGSKRAV FOR LATEX ===\n"
                     "1. Bruk page breaks mellom nivåer: \\newpage\n"
@@ -166,6 +179,7 @@ class MaTultimateAgents:
             )
 
             backstory = (
+                f"{vgs_context}\n\n"
                 f"Du er en presis matematiker som skriver elegant kode i {format_name}. "
                 "Du er ekspert på å forklare komplekse konsepter på en forståelig måte for elever.\n\n"
                 "=== VIKTIG: OUTPUT-FORMAT ===\n"
@@ -209,7 +223,7 @@ class MaTultimateAgents:
             "   - Alle nivåer dekker samme kompetansemål\n\n"
             "3. FASIT-VALIDERING:\n"
             "   - Hver oppgave i elevark har en tilsvarende løsning i fasit\n"
-            "   - Løsningene er matematisk korrekte (regn etter!)\n"
+            "   - Løsningene are matematisk korrekte (regn etter!)\n"
             "   - Steg-for-steg viser faktisk alle mellomsteg\n\n"
             "4. FORMATERING:\n"
             "   - Sideskift mellom nivåer\n"
