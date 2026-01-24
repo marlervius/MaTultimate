@@ -1,360 +1,356 @@
+# /frontend/app.py
+
 import streamlit as st
 import requests
-import os
 import base64
 from datetime import datetime
-from dotenv import load_dotenv
+from typing import Optional
 
-# Import curriculum data
-from src.curriculum import TOPIC_LIBRARY, COMPETENCY_GOALS
+# === KONFIGURASJON ===
+API_URL = st.secrets.get("API_URL", "http://localhost:8000")
 
-load_dotenv()
+# === SIDEOPPSETT ===
+st.set_page_config(
+    page_title="MaTultimate",
+    page_icon="📐",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Configuration
-API_URL = os.getenv("API_URL", "http://localhost:8000")
-
-def initialize_session_state():
-    if "generated_content" not in st.session_state:
-        st.session_state.generated_content = None
-    if "history" not in st.session_state:
-        st.session_state.history = []
-
-def inject_custom_css():
-    st.markdown("""
-    <style>
-    /* Main background and font */
-    .main {
-        background-color: #f0f2f6;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #e0e0e0;
-    }
-    
-    /* Card-like containers */
-    .st-emotion-cache-1r6slb0 {
-        background-color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-    
-    /* Hero Section */
-    .hero-container {
-        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-        padding: 3rem;
-        border-radius: 20px;
-        color: white;
-        margin-bottom: 2rem;
-        text-align: center;
-    }
-    
-    .hero-title {
-        font-size: 3rem;
-        font-weight: 800;
-        margin-bottom: 0.5rem;
-        letter-spacing: -1px;
-    }
-    
-    .hero-subtitle {
-        font-size: 1.2rem;
-        opacity: 0.9;
-    }
-    
-    /* Custom Buttons */
-    .stButton>button {
-        width: 100%;
-        border-radius: 10px;
-        height: 3.5rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-    }
-    
-    /* Section Headers */
-    .section-header {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    
-    /* Result Box */
-    .result-box {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
+# === CUSTOM CSS ===
+st.markdown("""
+<style>
+    .download-section {
+        background: linear-gradient(135deg, #667eea11 0%, #764ba211 100%);
         border-radius: 12px;
         padding: 1.5rem;
-        margin-top: 1.5rem;
+        margin: 1rem 0;
     }
-    </style>
-    """, unsafe_allow_html=True)
+    .level-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .level-1 { background: #d4edda; color: #155724; }
+    .level-2 { background: #fff3cd; color: #856404; }
+    .level-3 { background: #f8d7da; color: #721c24; }
+    .success-box {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 1rem;
+        border-radius: 0 8px 8px 0;
+    }
+    .stDownloadButton > button {
+        width: 100%;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-def main():
-    st.set_page_config(
-        page_title="MaTultimate 💎",
-        page_icon="💎",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+
+# === HJELPEFUNKSJONER ===
+def get_pdf_download_link(base64_pdf: str, filename: str) -> bytes:
+    """Konverter base64 til bytes for nedlasting."""
+    return base64.b64decode(base64_pdf)
+
+
+def render_pdf_preview(base64_pdf: str, height: int = 500):
+    """Vis PDF-forhåndsvisning i iframe."""
+    pdf_display = f"""
+    <iframe 
+        src="data:application/pdf;base64,{base64_pdf}" 
+        width="100%" 
+        height="{height}px" 
+        type="application/pdf"
+        style="border: 1px solid #ddd; border-radius: 8px;">
+    </iframe>
+    """
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
+
+def generate_material(config: dict) -> dict:
+    """Kall backend API for å generere materiell."""
+    try:
+        response = requests.post(
+            f"{API_URL}/generate",
+            json=config,
+            timeout=120  # AI-generering kan ta tid
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        return {"success": False, "error_message": str(e)}
+
+
+# === SESSION STATE INIT ===
+if "generated_result" not in st.session_state:
+    st.session_state.generated_result = None
+if "generation_history" not in st.session_state:
+    st.session_state.generation_history = []
+
+
+# === SIDEBAR: INNSTILLINGER ===
+with st.sidebar:
+    st.image("https://via.placeholder.com/200x60?text=MaTultimate", width=200)
+    st.markdown("---")
     
-    initialize_session_state()
-    inject_custom_css()
+    st.header("⚙️ Innstillinger")
     
-    # --- SIDEBAR ---
-    with st.sidebar:
-        st.markdown('<div style="text-align: center; padding: 1rem;">', unsafe_allow_html=True)
-        st.markdown("<h2 style='color: #1e3a8a; margin-bottom: 0;'>💎 MaTultimate</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #64748b;'>AI-drevet læremiddelverksted</p>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.divider()
-        
-        st.markdown("### ⚙️ Konfigurasjon")
-        grade = st.selectbox(
-            "Klassetrinn", 
-            options=list(TOPIC_LIBRARY.keys()),
-            index=2
+    # Faglig konfigurasjon
+    with st.expander("📚 Faglig innhold", expanded=True):
+        klassetrinn = st.selectbox(
+            "Klassetrinn",
+            options=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "vg1", "vg2", "vg3"],
+            index=7,  # Default: 8. trinn
+            help="Velg klassetrinn for oppgavesettet"
         )
         
-        material_type = st.select_slider(
-            "Type materiale", 
-            options=["lekseark", "arbeidsark", "kapittel", "prøve"],
-            value="arbeidsark"
+        emne = st.text_input(
+            "Emne",
+            value="Potenser",
+            max_chars=100,
+            help="F.eks. 'Potenser', 'Brøk', 'Lineære funksjoner'"
         )
         
-        output_format = st.radio(
-            "Eksportformat", 
-            options=["latex", "typst"],
-            format_func=lambda x: "📄 LaTeX (Tradisjonell)" if x == "latex" else "✨ Typst (Moderne)",
-            horizontal=True
+        kompetansemaal = st.text_area(
+            "Kompetansemål (LK20)",
+            value="Eleven skal kunne utforske og beskrive strukturer og forandringer i geometriske mønster og tallmønster med figurer, ord og formler",
+            height=100,
+            help="Lim inn kompetansemålet fra LK20"
         )
-
-        with st.expander("🎯 Avanserte Innstillinger", expanded=True):
-            use_three_levels = st.checkbox(
-                "Generer tre differensierte nivåer", 
-                value=False, 
-                help="Lager tre varianter av arket: Grunnleggende, Middels og Utfordring."
-            )
-            differentiation = "three_levels" if use_three_levels else "single"
-
-            include_answer_key = st.checkbox(
-                "Inkluder fasit med løsningsforslag", 
-                value=True, 
-                help="Lager et eget dokument med steg-for-steg løsninger."
-            )
-
-            export_mode = st.radio(
-                "Filorganisering",
-                options=["Samlet PDF", "Separate filer"],
-                index=0,
-                help="Velg om du vil ha alt i ett dokument eller som separate filer."
-            )
-        
-        st.divider()
-        
-        st.markdown("### 🛠️ Innholdselementer")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            include_theory = st.checkbox("📘 Teori", value=True)
-            include_examples = st.checkbox("💡 Eksempler", value=True)
-        with col_b:
-            include_exercises = st.checkbox("✍️ Oppgaver", value=True)
-            include_solutions = st.checkbox("🔑 Fasit", value=False, help="Inkluder fasit i selve elevarket")
-            
-        difficulty = st.select_slider(
-            "Vanskelighetsgrad",
-            options=["Lett", "Middels", "Vanskelig"],
-            value="Middels"
-        )
-
-    # --- MAIN CONTENT ---
     
-    # Hero Section
-    st.markdown("""
-    <div class="hero-container">
-        <div class="hero-title">MaTultimate 💎</div>
-        <div class="hero-subtitle">Lag profesjonelt matematikkinnhold på sekunder, tilpasset LK20</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1.2], gap="large")
-    
-    with col1:
-        st.markdown('<div class="section-header">📚 Tema og Læringsmål</div>', unsafe_allow_html=True)
-        
-        # Topic selection logic
-        grade_topics = TOPIC_LIBRARY.get(grade, {})
-        categories = list(grade_topics.keys())
-        selected_category = st.selectbox("Velg kategori", options=categories)
-        topics = grade_topics.get(selected_category, [])
-        topic = st.selectbox("Velg emne", options=topics)
-        
-        custom_topic = st.text_input("Eller skriv et eget tema...", placeholder="f.eks. Pytagoras i hverdagen")
-        final_topic = custom_topic if custom_topic else topic
-        
-        num_exercises = st.number_input("Antall oppgaver", min_value=0, max_value=50, value=10)
-        
-        st.markdown("#### 🎯 Kompetansemål (LK20)")
-        goals = COMPETENCY_GOALS.get(grade, [])
-        selected_goals = []
-        with st.expander("Velg relevante mål for økten", expanded=False):
-            for i, goal in enumerate(goals):
-                if st.checkbox(goal, key=f"goal_{i}"):
-                    selected_goals.append(goal)
-        
-        custom_instructions = st.text_area(
-            "Spesielle instruksjoner til AI-en", 
-            placeholder="f.eks. Bruk kun positive heltall, fokuser på tekstoppgaver...",
-            height=100
+    # Differensiering
+    with st.expander("🎯 Differensiering", expanded=True):
+        use_differentiation = st.toggle(
+            "Generer tre differensierte nivåer",
+            value=False,
+            help="Lag Nivå 1 (grunnleggende), Nivå 2 (middels) og Nivå 3 (utfordring)"
         )
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        if st.button("◇ GENERER ULTIMAT MATERIALE", type="primary"):
-            if not final_topic:
-                st.error("Vennligst velg eller skriv et tema.")
-            else:
-                    config = {
-                        "title": f"{final_topic} - {grade}",
-                        "grade": grade,
-                        "topic": final_topic,
-                        "material_type": material_type,
-                        "include_theory": include_theory,
-                        "include_examples": include_examples,
-                        "include_exercises": include_exercises,
-                        "include_solutions": include_solutions,
-                        "num_exercises": num_exercises,
-                        "difficulty": difficulty,
-                        "differentiation": differentiation,
-                        "include_answer_key": include_answer_key,
-                        "output_format": output_format,
-                        "competency_goals": selected_goals,
-                        "custom_instructions": custom_instructions
-                    }
-
-                with st.spinner("💎 MaTultimate AI-teamet utformer innholdet..."):
-                    try:
-                        response = requests.post(f"{API_URL}/generate", json=config)
-                        if response.status_code == 200:
-                            st.session_state.generated_content = response.json()
-                            st.success("✨ Materiale generert med suksess!")
-                        else:
-                            st.error(f"Feil fra server: {response.text}")
-                    except Exception as e:
-                        st.error(f"Kunne ikke koble til backend: {e}")
-
-    with col2:
-        st.markdown('<div class="section-header">✨ Dokumenter og Eksport</div>', unsafe_allow_html=True)
-        
-        if st.session_state.generated_content:
-            res = st.session_state.generated_content
-            
-            # Status and Download Section
-            st.markdown("### 📂 Dine filer er klare")
-            
-            # 1. Elevark Status
-            c1, c2 = st.columns([3, 1])
-            with c1:
-                levels_str = " (Nivå 1, 2, 3)" if res['config'].get('differentiation') == "three_levels" else ""
-                st.markdown(f"✅ **Elevark{levels_str}**")
-            with c2:
-                if res.get("pdf_base64"):
-                    pdf_bytes = base64.b64decode(res["pdf_base64"])
-                    st.download_button(
-                        label="📥 Last ned",
-                        data=pdf_bytes,
-                        file_name=f"elevark_{datetime.now().strftime('%Y%m%d')}.pdf",
-                        mime="application/pdf",
-                        key="dl_elevark",
-                        use_container_width=True
-                    )
-
-            # 2. Fasit Status
-            if res['config'].get('include_answer_key'):
-                c1, c2 = st.columns([3, 1])
-                with c1:
-                    st.markdown("✅ **Komplett Fasit** (steg-for-steg)")
-                with c2:
-                    if res.get("answer_key_pdf_base64"):
-                        ans_bytes = base64.b64decode(res["answer_key_pdf_base64"])
-                        st.download_button(
-                            label="📥 Last ned",
-                            data=ans_bytes,
-                            file_name=f"fasit_{datetime.now().strftime('%Y%m%d')}.pdf",
-                            mime="application/pdf",
-                            key="dl_fasit",
-                            use_container_width=True
-                        )
-                    else:
-                        st.button("⏳ Venter...", disabled=True, use_container_width=True)
-
-            # 3. Source Code
-            c1, c2 = st.columns([3, 1])
-            with c1:
-                st.markdown(f"✅ **Kildekode** ({res['format'].upper()})")
-            with c2:
-                ext = ".tex" if res['format'] == "latex" else ".typ"
-                st.download_button(
-                    label="📥 Last ned",
-                    data=res['content'],
-                    file_name=f"kildekode_{datetime.now().strftime('%Y%m%d')}{ext}",
-                    mime="text/plain",
-                    key="dl_source",
-                    use_container_width=True
-                )
-
-            st.divider()
-
-            # Error handling for compilation
-            if res.get("compilation_error"):
-                st.error(f"⚠️ PDF-kompilering feilet: {res['compilation_error']}")
-                st.info("Du kan fortsatt laste ned kildekoden over for å rette den manuelt.")
-
-            # PDF Preview
-            if res.get("pdf_base64"):
-                st.markdown("#### 📄 Forhåndsvisning (Elevark)")
-                pdf_display = f'<iframe src="data:application/pdf;base64,{res["pdf_base64"]}" width="100%" height="600" type="application/pdf"></iframe>'
-                st.markdown(pdf_display, unsafe_allow_html=True)
-
-            # Content Preview
-            with st.expander("Se rå kildekode", expanded=False):
-                st.markdown(f"**Format:** `{res['format'].upper()}` | **Generert:** `{datetime.now().strftime('%H:%M:%S')}`")
-                st.code(res['content'], language=res['format'])
-                
-            # Quick Tools
-            st.divider()
-            st.markdown("### 🛠️ Hurtigverktøy")
-            tab1, tab2 = st.tabs(["📊 GeoGebra", "📝 Redigering"])
-            
-            with tab1:
-                st.info("GeoGebra-integrasjon er klar. Klikk for å skanne innholdet.")
-                if st.button("🔍 Finn funksjoner"):
-                    st.write("Fant: $f(x) = 2x + 3$")
-            
-            with tab2:
-                st.text_area("Gjør manuelle endringer", value=res['content'], height=300)
-                
-        else:
+        if use_differentiation:
             st.markdown("""
-            <div style="border: 2px dashed #cbd5e1; border-radius: 15px; padding: 5rem; text-align: center; color: #94a3b8;">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">💎</div>
-                <h3>Klar til å skape?</h3>
-                <p>Konfigurer innholdet til venstre og trykk på generer-knappen for å se magien skje.</p>
+            <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+                <span class="level-badge level-1">Nivå 1</span> Grunnleggende<br>
+                <span class="level-badge level-2">Nivå 2</span> Middels<br>
+                <span class="level-badge level-3">Nivå 3</span> Utfordring
             </div>
             """, unsafe_allow_html=True)
+            
+            export_format = st.radio(
+                "Eksportformat",
+                options=["combined_pdf", "separate_files"],
+                format_func=lambda x: "Én samlet PDF" if x == "combined_pdf" else "Separate filer",
+                help="Velg om du vil ha alt i én fil eller separate filer per nivå"
+            )
+        else:
+            export_format = "combined_pdf"
+    
+    # Fasit
+    with st.expander("✅ Fasit", expanded=True):
+        include_answer_key = st.toggle(
+            "Inkluder fasit med løsningsforslag",
+            value=True,
+            help="Generer separat dokument med steg-for-steg løsninger"
+        )
+        
+        if include_answer_key:
+            st.info("Fasiten inkluderer full utregning for hver oppgave, ikke bare svar.")
+    
+    # Avanserte innstillinger
+    with st.expander("🔧 Avansert", expanded=False):
+        antall_oppgaver = st.slider(
+            "Antall oppgaver per nivå",
+            min_value=3,
+            max_value=20,
+            value=8
+        )
+        
+        include_hints = st.checkbox(
+            "Inkluder hint på Nivå 1",
+            value=True
+        )
+        
+        include_visuals = st.checkbox(
+            "Inkluder illustrasjoner",
+            value=False,
+            help="Eksperimentell: Legg til TikZ-figurer"
+        )
+        
+        document_format = st.radio(
+            "Dokumentformat",
+            options=["typst", "latex"],
+            format_func=lambda x: "Typst (raskere)" if x == "typst" else "LaTeX (flere pakker)"
+        )
 
-if __name__ == "__main__":
-    main()
+
+# === HOVEDINNHOLD ===
+st.title("📐 MaTultimate")
+st.markdown("*Generer differensierte matematikkoppgaver med AI*")
+
+# Generer-knapp
+col1, col2, col3 = st.columns([2, 1, 2])
+with col2:
+    generate_clicked = st.button(
+        "🚀 Generer materiell",
+        type="primary",
+        use_container_width=True
+    )
+
+if generate_clicked:
+    # Bygg konfigurasjon
+    config = {
+        "klassetrinn": klassetrinn,
+        "emne": emne,
+        "kompetansemaal": kompetansemaal,
+        "differentiation": "three_levels" if use_differentiation else "single",
+        "include_answer_key": include_answer_key,
+        "document_format": document_format,
+        "export_format": export_format,
+        "antall_oppgaver": antall_oppgaver,
+        "include_hints": include_hints,
+        "include_visuals": include_visuals
+    }
+    
+    with st.spinner("🔮 Genererer materiell... Dette kan ta 30-60 sekunder."):
+        result = generate_material(config)
+        st.session_state.generated_result = result
+        
+        # Legg til i historikk
+        if result.get("success"):
+            st.session_state.generation_history.append({
+                "timestamp": datetime.now(),
+                "config": config,
+                "result": result
+            })
+
+
+# === RESULTATVISNING ===
+if st.session_state.generated_result:
+    result = st.session_state.generated_result
+    
+    if result.get("success"):
+        st.markdown('<div class="success-box">✅ Materiell generert!</div>', unsafe_allow_html=True)
+        
+        # Metadata
+        metadata = result.get("metadata", {})
+        st.markdown(f"""
+        **Generert:** {metadata.get('klassetrinn', '')}. trinn · {metadata.get('emne', '')} · 
+        {metadata.get('levels', 1)} nivå(er)
+        """)
+        
+        st.markdown("---")
+        
+        # === NEDLASTINGSSEKSJON ===
+        st.subheader("📥 Last ned")
+        
+        # Dynamisk visning basert på hva som ble generert
+        download_cols = st.columns(2 if include_answer_key else 1)
+        
+        with download_cols[0]:
+            st.markdown("#### 📄 Elevark")
+            
+            if export_format == "separate_files" and use_differentiation:
+                # Separate filer per nivå
+                level_cols = st.columns(3)
+                
+                if result.get("level_1_pdf"):
+                    with level_cols[0]:
+                        st.download_button(
+                            label="⬇️ Nivå 1",
+                            data=get_pdf_download_link(result["level_1_pdf"], ""),
+                            file_name=f"{emne.lower()}_nivaa1_{klassetrinn}.pdf",
+                            mime="application/pdf"
+                        )
+                
+                if result.get("level_2_pdf"):
+                    with level_cols[1]:
+                        st.download_button(
+                            label="⬇️ Nivå 2",
+                            data=get_pdf_download_link(result["level_2_pdf"], ""),
+                            file_name=f"{emne.lower()}_nivaa2_{klassetrinn}.pdf",
+                            mime="application/pdf"
+                        )
+                
+                if result.get("level_3_pdf"):
+                    with level_cols[2]:
+                        st.download_button(
+                            label="⬇️ Nivå 3",
+                            data=get_pdf_download_link(result["level_3_pdf"], ""),
+                            file_name=f"{emne.lower()}_nivaa3_{klassetrinn}.pdf",
+                            mime="application/pdf"
+                        )
+            else:
+                # Én samlet fil
+                if result.get("worksheet_pdf"):
+                    st.download_button(
+                        label="⬇️ Last ned elevark (PDF)",
+                        data=get_pdf_download_link(result["worksheet_pdf"], ""),
+                        file_name=f"{emne.lower()}_{klassetrinn}_elevark.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+        
+        if include_answer_key and result.get("answer_key_pdf"):
+            with download_cols[1]:
+                st.markdown("#### 🔑 Fasit")
+                st.download_button(
+                    label="⬇️ Last ned fasit (PDF)",
+                    data=get_pdf_download_link(result["answer_key_pdf"], ""),
+                    file_name=f"{emne.lower()}_{klassetrinn}_fasit.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+                st.caption("Inneholder steg-for-steg løsninger")
+        
+        # Kildekode (for debugging/redigering)
+        with st.expander("🔧 Vis kildekode"):
+            source_tab, answer_tab = st.tabs(["Elevark", "Fasit"])
+            
+            with source_tab:
+                if result.get("source_code"):
+                    st.code(result["source_code"], language="latex" if document_format == "latex" else "text")
+                    st.download_button(
+                        label="Last ned kildekode",
+                        data=result["source_code"],
+                        file_name=f"{emne.lower()}_{klassetrinn}.{'tex' if document_format == 'latex' else 'typ'}",
+                        mime="text/plain"
+                    )
+            
+            with answer_tab:
+                if result.get("answer_key_source"):
+                    st.code(result["answer_key_source"], language="latex" if document_format == "latex" else "text")
+        
+        # === FORHÅNDSVISNING ===
+        st.markdown("---")
+        st.subheader("👁️ Forhåndsvisning")
+        
+        preview_tabs = st.tabs(["Elevark", "Fasit"] if include_answer_key else ["Elevark"])
+        
+        with preview_tabs[0]:
+            if result.get("worksheet_pdf"):
+                render_pdf_preview(result["worksheet_pdf"])
+        
+        if include_answer_key and len(preview_tabs) > 1:
+            with preview_tabs[1]:
+                if result.get("answer_key_pdf"):
+                    render_pdf_preview(result["answer_key_pdf"])
+    
+    else:
+        # Feilhåndtering
+        st.error(f"❌ Generering feilet: {result.get('error_message', 'Ukjent feil')}")
+        
+        if result.get("raw_ai_output"):
+            with st.expander("🔍 Debug: Rå AI-output"):
+                st.code(result["raw_ai_output"])
+                st.info("Du kan kopiere denne koden og manuelt fikse eventuelle syntaksfeil.")
+
+
+# === FOOTER ===
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: #888; font-size: 0.85rem;'>"
+    "MaTultimate · Laget for norske lærere · Følger LK20"
+    "</div>",
+    unsafe_allow_html=True
+)
