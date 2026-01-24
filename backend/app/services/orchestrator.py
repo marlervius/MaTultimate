@@ -6,6 +6,7 @@ from crewai import Crew, Process
 from app.models.core import MaterialConfig, MathBlock
 from app.services.agents import MaTultimateAgents
 from app.core.sanitizers import strip_markdown_fences
+from app.core.compiler import compile_latex_to_pdf, compile_typst_to_pdf
 
 class MaTultimateOrchestrator:
     """
@@ -75,10 +76,20 @@ class MaTultimateOrchestrator:
         raw_content = result.raw if hasattr(result, 'raw') else str(result)
         clean_content = strip_markdown_fences(raw_content)
         
-        # Ensure all downstream processes (PDF, DOCX, PPTX) use the sanitized content
+        # 5. Compile to PDF
+        pdf_base64 = None
+        compilation_error = None
+        
+        if config.output_format == "latex":
+            pdf_base64, compilation_error = compile_latex_to_pdf(clean_content)
+        elif config.output_format == "typst":
+            pdf_base64, compilation_error = compile_typst_to_pdf(clean_content)
+            
         return {
             "content": clean_content,
             "format": config.output_format,
+            "pdf_base64": pdf_base64,
+            "compilation_error": compilation_error,
             "timestamp": datetime.now().isoformat(),
             "config": config.model_dump()
         }

@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import os
+import base64
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -243,21 +244,42 @@ def main():
             ext = ".tex" if res['format'] == "latex" else ".typ"
             
             with c1:
+                # PDF Download (Primary)
+                if res.get("pdf_base64"):
+                    pdf_bytes = base64.b64decode(res["pdf_base64"])
+                    st.download_button(
+                        label="📕 Last ned PDF",
+                        data=pdf_bytes,
+                        file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                else:
+                    st.button("📕 PDF Feilet", disabled=True, use_container_width=True, help=res.get("compilation_error"))
+            
+            with c2:
+                # Source Code Download
                 st.download_button(
-                    label=f"📥 Last ned {res['format'].upper()}",
+                    label=f"📥 Kildekode ({res['format'].upper()})",
                     data=res['content'],
                     file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}{ext}",
                     mime="text/plain",
                     use_container_width=True
                 )
             
-            with c2:
-                # Placeholder for PDF conversion
-                st.button("📕 Generer PDF", disabled=True, use_container_width=True)
-            
             with c3:
-                if st.button("⭐ Lagre i bank", use_container_width=True):
-                    st.toast("Lagret i din personlige oppgavebank!")
+                # Word Export (only for LaTeX)
+                if res['format'] == 'latex':
+                    # Note: In a real distributed system, Word conversion should happen on backend
+                    # For now, we keep the button as a placeholder or implement backend call
+                    st.button("📘 Word (.docx)", disabled=True, use_container_width=True, help="Kommer snart")
+                else:
+                    st.button("⭐ Lagre i bank", use_container_width=True)
+
+            # Error handling for compilation
+            if res.get("compilation_error"):
+                st.error(f"⚠️ PDF-kompilering feilet: {res['compilation_error']}")
+                st.info("Du kan fortsatt laste ned kildekoden over for å rette den manuelt.")
 
             # Content Preview
             with st.container():
