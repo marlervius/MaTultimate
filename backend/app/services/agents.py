@@ -139,3 +139,29 @@ class MaTultimateAgents:
             verbose=True,
             allow_delegation=False
         )
+
+    def solution_writer(self, config: MaterialConfig) -> Agent:
+        is_latex = config.output_format == "latex"
+        format_name = "LaTeX" if is_latex else "Typst"
+        
+        backstory = (
+            f"Du er en matematikkdidaktiker som spesialiserer seg på å lage løsningsforslag. "
+            "Din jobb er å ta oppgavene og lage en komplett fasit med steg-for-steg forklaringer.\n\n"
+            "=== KRAV TIL LØSNING ===\n"
+            "- Vis ALLE utregninger, ikke bare svaret.\n"
+            "- Forklar det matematiske resonnementet bak hvert steg.\n"
+            "- Bruk formatet: Oppgave X: [problem] -> Løsning: [steg] -> Svar: [endelig svar].\n"
+            "- Overskriften skal inneholde: Tema, Klassetrinn, og teksten 'Kun for lærerbruk'.\n\n"
+            "=== VIKTIG: OUTPUT-FORMAT ===\n"
+            f"Du skal returnere KUN rå {format_name}-kode uten markdown fences.\n"
+            "Output skal være et SEPARAT dokument klart for kompilering."
+        )
+
+        return Agent(
+            role="Løsningsarkitekt",
+            goal=f"Lag en komplett, pedagogisk fasit i {format_name}-format.",
+            backstory=backstory,
+            llm=self.llm,
+            verbose=True,
+            allow_delegation=False
+        )

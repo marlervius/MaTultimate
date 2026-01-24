@@ -23,9 +23,9 @@ class MaTultimateOrchestrator:
         pedagogue = self.agents_factory.pedagogue(config)
         mathematician = self.agents_factory.mathematician(config)
         editor = self.agents_factory.editor(config)
+        solution_writer = self.agents_factory.solution_writer(config)
 
-        # 2. Define tasks (simplified for now, following MateMaTeX pattern)
-        # In a full implementation, these would be more detailed and potentially use LangGraph
+        # 2. Define tasks
         from crewai import Task
 
         plan_task = Task(
@@ -35,6 +35,7 @@ class MaTultimateOrchestrator:
                 f"{'eksempler, ' if config.include_examples else ''}"
                 f"{config.num_exercises} oppgaver. "
                 f"Vanskelighetsgrad: {config.difficulty}. "
+                f"Differensiering: {config.differentiation}. "
                 f"Kompetansemål: {', '.join(config.competency_goals)}."
             ),
             expected_output="En detaljert disposisjon for innholdet.",
@@ -62,10 +63,27 @@ class MaTultimateOrchestrator:
             context=[write_task]
         )
 
+        tasks = [plan_task, write_task, review_task]
+
+        # Add solution task if requested
+        solution_task = None
+        if config.include_answer_key:
+            solution_task = Task(
+                description=(
+                    "Lag en komplett fasit for oppgavene generert i forrige steg. "
+                    "Hver oppgave skal ha steg-for-steg utregning og forklaring. "
+                    "Inkluder tittel, trinn og 'Kun for lærerbruk' i headingen."
+                ),
+                expected_output=f"Komplett fasit i {config.output_format} format.",
+                agent=solution_writer,
+                context=[write_task]
+            )
+            tasks.append(solution_task)
+
         # 3. Run the crew
         crew = Crew(
-            agents=[pedagogue, mathematician, editor],
-            tasks=[plan_task, write_task, review_task],
+            agents=[pedagogue, mathematician, editor, solution_writer] if config.include_answer_key else [pedagogue, mathematician, editor],
+            tasks=tasks,
             process=Process.sequential,
             verbose=True
         )
@@ -73,22 +91,50 @@ class MaTultimateOrchestrator:
         result = crew.kickoff()
         
         # 4. Process and sanitize result
-        raw_content = result.raw if hasattr(result, 'raw') else str(result)
-        clean_content = strip_markdown_fences(raw_content)
+        # The result of the crew is typically the output of the LAST task
+        # If we have a solution task, we need to extract both
+        
+        worksheet_raw = ""
+        answer_key_raw = ""
+        
+        # CrewAI result.raw is the last task's output
+        if config.include_answer_key:
+            answer_key_raw = result.raw
+            # We need to find the output of the review_task
+            # In current CrewAI, we can access task outputs
+            for task in tasks:
+                if task.agent == editor:
+                    worksheet_raw = task.output.raw
+        else:
+            worksheet_raw = result.raw
+
+        worksheet_clean = strip_markdown_fences(worksheet_raw)
+        answer_key_clean = strip_markdown_fences(answer_key_raw) if answer_key_raw else ""
         
         # 5. Compile to PDF
-        pdf_base64 = None
+        worksheet_pdf = None
+        answer_key_pdf = None
         compilation_error = None
         
         if config.output_format == "latex":
-            pdf_base64, compilation_error = compile_latex_to_pdf(clean_content)
+            worksheet_pdf, err = compile_latex_to_pdf(worksheet_clean)
+            if err: compilation_error = f"Worksheet: {err}"
+            if config.include_answer_key and answer_key_clean:
+                answer_key_pdf, err = compile_latex_to_pdf(answer_key_clean)
+                if err: compilation_error = (compilation_error or "") + f" | Answer Key: {err}"
         elif config.output_format == "typst":
-            pdf_base64, compilation_error = compile_typst_to_pdf(clean_content)
+            worksheet_pdf, err = compile_typst_to_pdf(worksheet_clean)
+            if err: compilation_error = f"Worksheet: {err}"
+            if config.include_answer_key and answer_key_clean:
+                answer_key_pdf, err = compile_typst_to_pdf(answer_key_clean)
+                if err: compilation_error = (compilation_error or "") + f" | Answer Key: {err}"
             
         return {
-            "content": clean_content,
+            "content": worksheet_clean,
+            "answer_key_content": answer_key_clean,
             "format": config.output_format,
-            "pdf_base64": pdf_base64,
+            "pdf_base64": worksheet_pdf,
+            "answer_key_pdf_base64": answer_key_pdf,
             "compilation_error": compilation_error,
             "timestamp": datetime.now().isoformat(),
             "config": config.model_dump()

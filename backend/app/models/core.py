@@ -15,6 +15,7 @@ class MaterialConfig(BaseModel):
     num_exercises: int = 10
     difficulty: str = "Middels"
     differentiation: Literal["single", "three_levels"] = "single"
+    include_answer_key: bool = True
     language: str = "no"
     output_format: str = "latex" # 'latex' or 'typst'
     competency_goals: List[str] = []

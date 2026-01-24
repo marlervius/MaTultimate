@@ -163,6 +163,9 @@ def main():
         use_three_levels = st.toggle("Generer med tre nivåer", value=False, help="Lager tre varianter av arket: Grunnleggende, Middels og Utfordring.")
         differentiation = "three_levels" if use_three_levels else "single"
 
+        st.markdown("### 🔑 Fasit")
+        include_answer_key = st.toggle("Generer separat fasit", value=True, help="Lager et eget dokument med steg-for-steg løsninger.")
+
     # --- MAIN CONTENT ---
     
     # Hero Section
@@ -222,6 +225,7 @@ def main():
                         "num_exercises": num_exercises,
                         "difficulty": difficulty,
                         "differentiation": differentiation,
+                        "include_answer_key": include_answer_key,
                         "output_format": output_format,
                         "competency_goals": selected_goals,
                         "custom_instructions": custom_instructions
@@ -253,9 +257,9 @@ def main():
                 if res.get("pdf_base64"):
                     pdf_bytes = base64.b64decode(res["pdf_base64"])
                     st.download_button(
-                        label="📕 Last ned PDF",
+                        label="📕 Elevark (PDF)",
                         data=pdf_bytes,
-                        file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        file_name=f"elevark_{datetime.now().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf",
                         use_container_width=True
                     )
@@ -263,23 +267,41 @@ def main():
                     st.button("📕 PDF Feilet", disabled=True, use_container_width=True, help=res.get("compilation_error"))
             
             with c2:
-                # Source Code Download
-                st.download_button(
-                    label=f"📥 Kildekode ({res['format'].upper()})",
-                    data=res['content'],
-                    file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}{ext}",
-                    mime="text/plain",
-                    use_container_width=True
-                )
+                # Answer Key Download
+                if res.get("answer_key_pdf_base64"):
+                    ans_bytes = base64.b64decode(res["answer_key_pdf_base64"])
+                    st.download_button(
+                        label="🔑 Fasit (PDF)",
+                        data=ans_bytes,
+                        file_name=f"fasit_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                else:
+                    st.download_button(
+                        label=f"📥 Kildekode ({res['format'].upper()})",
+                        data=res['content'],
+                        file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}{ext}",
+                        mime="text/plain",
+                        use_container_width=True
+                    )
             
             with c3:
-                # Word Export (only for LaTeX)
-                if res['format'] == 'latex':
-                    # Note: In a real distributed system, Word conversion should happen on backend
-                    # For now, we keep the button as a placeholder or implement backend call
-                    st.button("📘 Word (.docx)", disabled=True, use_container_width=True, help="Kommer snart")
+                # Source Code Download (if c2 is used for Fasit)
+                if res.get("answer_key_pdf_base64"):
+                    st.download_button(
+                        label=f"📥 Kildekode",
+                        data=res['content'],
+                        file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}{ext}",
+                        mime="text/plain",
+                        use_container_width=True
+                    )
                 else:
-                    st.button("⭐ Lagre i bank", use_container_width=True)
+                    # Word Export (only for LaTeX)
+                    if res['format'] == 'latex':
+                        st.button("📘 Word (.docx)", disabled=True, use_container_width=True, help="Kommer snart")
+                    else:
+                        st.button("⭐ Lagre i bank", use_container_width=True)
 
             # Error handling for compilation
             if res.get("compilation_error"):
