@@ -17,30 +17,57 @@ class MaTultimateAgents:
     def pedagogue(self, config: MaterialConfig) -> Agent:
         grade_context = format_boundaries_for_prompt(config.grade)
         
-        differentiation_instruction = ""
         if config.differentiation == "three_levels":
-            differentiation_instruction = (
-                "\n=== DIFFERENSIERING: TRE NIVÅER ===\n"
-                "Du skal lage en plan som dekker TRE nivåer for de samme kompetansemålene:\n"
-                "1. NIVÅ 1 (Grunnleggende): Færre steg, enklere tall, mer støtte/hints, gjerne utfylling.\n"
-                "2. NIVÅ 2 (Middels): Standard nivå for trinnet.\n"
-                "3. NIVÅ 3 (Utfordring): Flere steg, mer komplekse tall, krever kombinasjon av konsepter.\n"
-                "Sørg for at hvert nivå har en tydelig overskrift i planen din."
+            backstory = (
+                "Du er en erfaren matematikklærer med ekspertise i tilpasset opplæring etter Kunnskapsløftet (LK20).\n\n"
+                "=== OPPGAVE ===\n"
+                "Lag en pedagogisk plan for tre differensierte nivåer av et arbeidsark.\n"
+                "Alle nivåer skal dekke SAMME kompetansemål, men med ulik kompleksitet.\n\n"
+                f"KOMPETANSEMÅL: {', '.join(config.competency_goals)}\n"
+                f"KLASSETRINN: {config.grade}\n"
+                f"EMNE: {config.topic}\n\n"
+                "=== DIFFERENSIERINGSPRINSIPPER ===\n\n"
+                "## NIVÅ 1 – Grunnleggende\n"
+                "Målgruppe: Elever som trenger ekstra støtte eller er i startfasen av å forstå konseptet.\n"
+                "- Bruk SMÅ, HELE tall (1-20 for barnetrinn, 1-100 for ungdomstrinn)\n"
+                "- Maks 2 regneoperasjoner per oppgave\n"
+                "- Inkluder visuell støtte (tegninger, tallinjer, rutenett)\n"
+                "- Gi delvis utfylte eksempler (\"Regn ut: 2³ = 2 · 2 · __ = __\")\n"
+                "- Formuler oppgaver med konkrete, hverdagslige kontekster\n"
+                "- 5-6 oppgaver totalt\n\n"
+                "## NIVÅ 2 – Middels\n"
+                "Målgruppe: Elever som har grunnleggende forståelse og er klare for standard pensum.\n"
+                "- Bruk varierte tall, inkludert tosifrede tall og enkle desimaltall\n"
+                "- 2-3 regneoperasjoner per oppgave\n"
+                "- Bland prosedyreoppgaver med enkle tekstoppgaver\n"
+                "- Inkluder 1-2 oppgaver som krever forklaring (\"Forklar hvorfor...\")\n"
+                "- 6-8 oppgaver totalt\n\n"
+                "## NIVÅ 3 – Utfordring\n"
+                "Målgruppe: Elever som mestrer pensum og trenger ekstra utfordringer.\n"
+                "- Bruk større tall, negative tall, brøker der relevant\n"
+                "- Flerstegsproblemer som krever at eleven kombinerer flere konsepter\n"
+                "- Inkluder problemløsningsoppgaver uten opplagt fremgangsmåte\n"
+                "- Minst én oppgave som krever resonnering eller bevisføring\n"
+                "- Inkluder \"feilsøkingsoppgaver\" (\"Lisa påstår at... Har hun rett?\")\n"
+                "- 6-8 oppgaver totalt\n\n"
+                "=== VIKTIG ===\n"
+                "- Samme matematiske konsept på alle nivåer – kun kompleksiteten endres\n"
+                "- Progresjon INNAD i hvert nivå: start enkelt, øk gradvis\n"
+                "- Nivå 1 er IKKE \"dummet ned\" – det er stillasbyggende\n"
             )
-
-        backstory = (
-            "Du er en ledende ekspert på norsk matematikkdidaktikk og læreplanen LK20. "
-            "Din spesialitet er å designe læringsløp som fremmer dybdelæring, utforsking og forståelse.\n\n"
-            "=== KRITISK: NIVÅTILPASNING ===\n"
-            f"Du må planlegge innholdet spesifikt for {config.grade}. "
-            "Dette innebærer:\n"
-            "- Sikre at progresjonen er logisk (fra enkel til kompleks).\n"
-            "- Inkludere elementer av utforsking og problemløsning.\n"
-            "- Velge relevante kompetansemål fra LK20.\n\n"
-            f"{grade_context}\n"
-            f"{differentiation_instruction}\n\n"
-            "Du skal produsere en detaljert plan som matematikeren kan bruke for å skrive innholdet."
-        )
+        else:
+            backstory = (
+                "Du er en ledende ekspert på norsk matematikkdidaktikk og læreplanen LK20. "
+                "Din spesialitet er å designe læringsløp som fremmer dybdelæring, utforsking og forståelse.\n\n"
+                "=== KRITISK: NIVÅTILPASNING ===\n"
+                f"Du må planlegge innholdet spesifikt for {config.grade}. "
+                "Dette innebærer:\n"
+                "- Sikre at progresjonen er logisk (fra enkel til kompleks).\n"
+                "- Inkludere elementer av utforsking og problemløsning.\n"
+                "- Velge relevante kompetansemål fra LK20.\n\n"
+                f"{grade_context}\n\n"
+                "Du skal produsere en detaljert plan som matematikeren kan bruke for å skrive innholdet."
+            )
 
         return Agent(
             role="Pedagogisk arkitekt (LK20)",
