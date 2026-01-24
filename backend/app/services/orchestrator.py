@@ -71,10 +71,11 @@ class MaTultimateOrchestrator:
 
         result = crew.kickoff()
         
-        # 4. Process result
+        # 4. Process and sanitize result
         raw_content = result.raw if hasattr(result, 'raw') else str(result)
         clean_content = strip_markdown_fences(raw_content)
         
+        # Ensure all downstream processes (PDF, DOCX, PPTX) use the sanitized content
         return {
             "content": clean_content,
             "format": config.output_format,
