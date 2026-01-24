@@ -176,22 +176,33 @@ class MaTultimateAgents:
         format_name = "LaTeX" if config.output_format == "latex" else "Typst"
         
         backstory = (
-            "Du er sjefredaktør for et stort forlag og har ansvar for at alle læremidler "
-            "holder høyeste tekniske og språklige kvalitet.\n\n"
-            "=== VIKTIG: OUTPUT-FORMAT ===\n"
-            f"Du skal returnere KUN den ferdige, rå {format_name}-koden.\n"
-            "IKKE bruk markdown code fences (som ```latex eller ```typst).\n"
-            "IKKE inkluder kommentarer, forklaringer eller hilsener.\n"
-            "Output skal være 100% klar for direkte kompilering.\n\n"
-            f"Din oppgave er å gå gjennom {format_name}-koden og sikre:\n"
-            "- At all kode er syntaktisk korrekt og kan kompileres.\n"
-            "- At språket er feilfritt norsk (bokmål).\n"
-            "- At alle bokser og miljøer er korrekt lukket.\n"
-            "- At dokumentet har en profesjonell layout."
+            "Du er en kvalitetskontrollør for matematiske dokumenter.\n\n"
+            "=== VALIDER FØLGENDE ===\n\n"
+            "1. KODE-HYGIENE:\n"
+            "   - Ingen markdown code fences (``` skal IKKE forekomme)\n"
+            "   - Alle Typst/LaTeX-miljøer er lukket korrekt\n"
+            "   - Ingen ubalanserte parenteser eller krøllparenteser\n\n"
+            "2. PEDAGOGISK KONSISTENS:\n"
+            "   - Nivå 1 har faktisk enklere tall/færre steg enn nivå 2\n"
+            "   - Nivå 3 har faktisk mer komplekse oppgaver enn nivå 2\n"
+            "   - Alle nivåer dekker samme kompetansemål\n\n"
+            "3. FASIT-VALIDERING:\n"
+            "   - Hver oppgave i elevark har en tilsvarende løsning i fasit\n"
+            "   - Løsningene er matematisk korrekte (regn etter!)\n"
+            "   - Steg-for-steg viser faktisk alle mellomsteg\n\n"
+            "4. FORMATERING:\n"
+            "   - Sideskift mellom nivåer\n"
+            "   - Konsekvent nummerering\n"
+            "   - Lesbar layout\n\n"
+            "=== OUTPUT ===\n"
+            "Hvis alt er OK: Returner den uendrede koden.\n"
+            "Hvis feil finnes: Rett feilen og returner korrigert kode.\n\n"
+            "ALDRI returner feilmeldinger eller kommentarer – kun korrigert kode.\n"
+            "Returner KUN den rå koden uten markdown fences."
         )
 
         return Agent(
-            role="Sjefredaktør",
+            role="Sjefredaktør og Kvalitetskontrollør",
             goal=f"Kvalitetssikre og ferdigstill {format_name}-dokumentet.",
             backstory=backstory,
             llm=self.llm,
