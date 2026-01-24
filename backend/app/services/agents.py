@@ -82,54 +82,86 @@ class MaTultimateAgents:
         is_latex = config.output_format == "latex"
         format_name = "LaTeX" if is_latex else "Typst"
         
-        differentiation_formatting = ""
         if config.differentiation == "three_levels":
-            if is_latex:
-                differentiation_formatting = (
-                    "\n=== FORMATERING FOR TRE NIVÅER ===\n"
-                    "Start hvert nivå på en ny side med \\newpage.\n"
-                    "Bruk en tydelig overskrift for hvert nivå: \\section*{Nivå 1: Grunnleggende}, osv.\n"
+            if not is_latex: # Typst differentiation prompt
+                backstory = (
+                    "Du er en teknisk skribent som konverterer pedagogiske planer til kompilerbar kode.\n\n"
+                    "=== FORMATERINGSKRAV FOR TYPST ===\n"
+                    "1. Bruk page breaks mellom nivåer: #pagebreak()\n"
+                    "2. Hver nivå får en tydelig header:\n"
+                    "   #heading(level: 1)[Nivå 1 – Grunnleggende]\n"
+                    "3. Bruk definerte box-stiler for oppgavetyper:\n"
+                    "   - #oppgave[...] for standard oppgaver\n"
+                    "   - #utfordring[...] for nivå 3-oppgaver\n"
+                    "   - #hint[...] for scaffolding-hint på nivå 1\n\n"
+                    "4. For matematikk, bruk $...$ for inline og $ ... $ for utstilt\n\n"
+                    "5. Nummerer oppgaver konsekvent: 1a, 1b, 2a, 2b osv.\n\n"
+                    "=== STRUKTUR ===\n"
+                    "// Nivå 1\n"
+                    "#heading(level: 1)[Nivå 1 – Grunnleggende]\n"
+                    "#v(0.5em)\n"
+                    "#text(style: \"italic\")[Disse oppgavene hjelper deg å forstå det grunnleggende.]\n\n"
+                    "[oppgaver...]\n\n"
+                    "#pagebreak()\n\n"
+                    "// Nivå 2\n"
+                    "#heading(level: 1)[Nivå 2 – Middels]\n"
+                    "...\n\n"
+                    "#pagebreak()\n\n"
+                    "// Nivå 3\n"
+                    "#heading(level: 1)[Nivå 3 – Utfordring]\n"
+                    "...\n\n"
+                    "=== KRITISK ===\n"
+                    "- Returner KUN rå Typst-kode\n"
+                    "- INGEN markdown code fences (```)\n"
+                    "- INGEN forklarende tekst før eller etter koden\n"
+                    "- Koden skal kompilere direkte uten modifikasjon"
                 )
-            else:
-                differentiation_formatting = (
-                    "\n=== FORMATERING FOR TRE NIVÅER ===\n"
-                    "Start hvert nivå på en ny side med #pagebreak().\n"
-                    "Bruk en tydelig overskrift for hvert nivå: = Nivå 1: Grunnleggende, osv.\n"
+            else: # LaTeX differentiation prompt (adapted from your Typst requirements)
+                backstory = (
+                    "Du er en teknisk skribent som konverterer pedagogiske planer til kompilerbar LaTeX-kode.\n\n"
+                    "=== FORMATERINGSKRAV FOR LATEX ===\n"
+                    "1. Bruk page breaks mellom nivåer: \\newpage\n"
+                    "2. Hver nivå får en tydelig header: \\section*{Nivå X – ...}\n"
+                    "3. Bruk definerte miljøer:\n"
+                    "   - \\begin{taskbox}{Oppgave N} ... \\end{taskbox} for oppgaver\n"
+                    "   - \\begin{merk} ... \\end{merk} for scaffolding-hint på nivå 1\n\n"
+                    "4. Nummerer oppgaver konsekvent: 1a, 1b, 2a, 2b osv.\n\n"
+                    "=== KRITISK ===\n"
+                    "- Returner KUN rå LaTeX-kode\n"
+                    "- INGEN markdown code fences (```)\n"
+                    "- INGEN forklarende tekst før eller etter koden\n"
+                    "- Koden skal kompilere direkte uten modifikasjon"
                 )
-
-        # Formatting rules based on format
-        if is_latex:
+        else:
+            # Standard single-level prompt
             format_rules = (
                 "1. DEFINISJONER: Bruk \\begin{definisjon} ... \\end{definisjon}\n"
                 "2. EKSEMPLER: Bruk \\begin{eksempel}[title=...] ... \\end{eksempel}\n"
                 "3. OPPGAVER: Bruk \\begin{taskbox}{Oppgave N} ... \\end{taskbox}\n"
                 "4. FASIT: Bruk \\begin{losning} ... \\end{losning}\n"
                 "5. MATEMATIKK: Bruk $...$ for inline og \\begin{equation} for display."
-            )
-        else:
-            format_rules = (
+            ) if is_latex else (
                 "1. DEFINISJONER: Bruk #definition[ ... ]\n"
                 "2. EKSEMPLER: Bruk #example(title: \"...\")[ ... ]\n"
                 "3. THEOREMER: Bruk #theorem[ ... ]\n"
                 "4. MATEMATIKK: Bruk $ ... $ for både inline og display (display har mellomrom etter $)."
             )
 
-        backstory = (
-            f"Du er en presis matematiker som skriver elegant kode i {format_name}. "
-            "Du er ekspert på å forklare komplekse konsepter på en forståelig måte for elever.\n\n"
-            "=== VIKTIG: OUTPUT-FORMAT ===\n"
-            f"Du skal returnere KUN rå {format_name}-kode. \n"
-            "IKKE bruk markdown code fences (som ```latex eller ```typst).\n"
-            "IKKE inkluder forklarende tekst før eller etter koden.\n"
-            "Output skal kunne sendes direkte til en kompilator.\n\n"
-            "=== DINE REGLER ===\n"
-            f"{format_rules}\n"
-            f"{differentiation_formatting}\n\n"
-            "=== MATEMATISK RIGOR ===\n"
-            "- Bruk korrekt notasjon.\n"
-            "- Sørg for at alle mellomregninger i eksempler og løsninger er korrekte.\n"
-            f"- Tilpass kompleksiteten til {config.grade}."
-        )
+            backstory = (
+                f"Du er en presis matematiker som skriver elegant kode i {format_name}. "
+                "Du er ekspert på å forklare komplekse konsepter på en forståelig måte for elever.\n\n"
+                "=== VIKTIG: OUTPUT-FORMAT ===\n"
+                f"Du skal returnere KUN rå {format_name}-kode. \n"
+                "IKKE bruk markdown code fences (som ```latex eller ```typst).\n"
+                "IKKE inkluder forklarende tekst før eller etter koden.\n"
+                "Output skal kunne sendes direkte til en kompilator.\n\n"
+                "=== DINE REGLER ===\n"
+                f"{format_rules}\n\n"
+                "=== MATEMATISK RIGOR ===\n"
+                "- Bruk korrekt notasjon.\n"
+                "- Sørg for at alle mellomregninger i eksempler og løsninger er korrekte.\n"
+                f"- Tilpass kompleksiteten til {config.grade}."
+            )
 
         return Agent(
             role="Matematiker og innholdsprodusent",
