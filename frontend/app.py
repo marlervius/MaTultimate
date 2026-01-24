@@ -281,8 +281,14 @@ def main():
                 st.error(f"⚠️ PDF-kompilering feilet: {res['compilation_error']}")
                 st.info("Du kan fortsatt laste ned kildekoden over for å rette den manuelt.")
 
+            # PDF Preview
+            if res.get("pdf_base64"):
+                st.markdown("#### 📄 Forhåndsvisning")
+                pdf_display = f'<iframe src="data:application/pdf;base64,{res["pdf_base64"]}" width="100%" height="600" type="application/pdf"></iframe>'
+                st.markdown(pdf_display, unsafe_allow_html=True)
+
             # Content Preview
-            with st.container():
+            with st.expander("Se kildekode", expanded=False):
                 st.markdown(f"**Format:** `{res['format'].upper()}` | **Generert:** `{datetime.now().strftime('%H:%M:%S')}`")
                 st.code(res['content'], language=res['format'])
                 
