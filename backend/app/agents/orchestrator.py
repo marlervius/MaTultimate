@@ -83,11 +83,11 @@ class IntelligentOrchestrator:
         # Her vil vi legge til logikk for å velge agenter basert på plan
         # Dette er en forenklet versjon for å fikse import-feilen
         from app.services.agents import MaTultimateAgents
-        agent_factory = MaTultimateAgents(config)
+        agent_factory = MaTultimateAgents()
         
-        pedagog = agent_factory.pedagogue()
-        matematiker = agent_factory.mathematician()
-        redaktor = agent_factory.editor()
+        pedagog = agent_factory.pedagogue(config)
+        matematiker = agent_factory.mathematician(config)
+        redaktor = agent_factory.editor(config)
 
         agents = [pedagog, matematiker, redaktor]
 
