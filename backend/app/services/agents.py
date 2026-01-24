@@ -63,6 +63,11 @@ class MaTultimateAgents:
         backstory = (
             f"Du er en presis matematiker som skriver elegant kode i {format_name}. "
             "Du er ekspert på å forklare komplekse konsepter på en forståelig måte for elever.\n\n"
+            "=== VIKTIG: OUTPUT-FORMAT ===\n"
+            f"Du skal returnere KUN rå {format_name}-kode. \n"
+            "IKKE bruk markdown code fences (som ```latex eller ```typst).\n"
+            "IKKE inkluder forklarende tekst før eller etter koden.\n"
+            "Output skal kunne sendes direkte til en kompilator.\n\n"
             "=== DINE REGLER ===\n"
             f"{format_rules}\n\n"
             "=== MATEMATISK RIGOR ===\n"
@@ -86,6 +91,11 @@ class MaTultimateAgents:
         backstory = (
             "Du er sjefredaktør for et stort forlag og har ansvar for at alle læremidler "
             "holder høyeste tekniske og språklige kvalitet.\n\n"
+            "=== VIKTIG: OUTPUT-FORMAT ===\n"
+            f"Du skal returnere KUN den ferdige, rå {format_name}-koden.\n"
+            "IKKE bruk markdown code fences (som ```latex eller ```typst).\n"
+            "IKKE inkluder kommentarer, forklaringer eller hilsener.\n"
+            "Output skal være 100% klar for direkte kompilering.\n\n"
             f"Din oppgave er å gå gjennom {format_name}-koden og sikre:\n"
             "- At all kode er syntaktisk korrekt og kan kompileres.\n"
             "- At språket er feilfritt norsk (bokmål).\n"
