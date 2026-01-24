@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from app.models.core import MaterialConfig
+from app.models.config import MaterialConfig, GenerationResponse
 from app.services.orchestrator import MaTultimateOrchestrator
 import uvicorn
 
@@ -9,7 +9,7 @@ app = FastAPI(title="MaTultimate API")
 async def root():
     return {"message": "MaTultimate API is running"}
 
-@app.post("/generate")
+@app.post("/generate", response_model=GenerationResponse)
 async def generate_material(config: MaterialConfig):
     try:
         orchestrator = MaTultimateOrchestrator()
