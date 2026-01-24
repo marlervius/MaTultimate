@@ -141,6 +141,27 @@ def main():
             format_func=lambda x: "📄 LaTeX (Tradisjonell)" if x == "latex" else "✨ Typst (Moderne)",
             horizontal=True
         )
+
+        with st.expander("🎯 Avanserte Innstillinger", expanded=True):
+            use_three_levels = st.checkbox(
+                "Generer tre differensierte nivåer", 
+                value=False, 
+                help="Lager tre varianter av arket: Grunnleggende, Middels og Utfordring."
+            )
+            differentiation = "three_levels" if use_three_levels else "single"
+
+            include_answer_key = st.checkbox(
+                "Inkluder fasit med løsningsforslag", 
+                value=True, 
+                help="Lager et eget dokument med steg-for-steg løsninger."
+            )
+
+            export_mode = st.radio(
+                "Filorganisering",
+                options=["Samlet PDF", "Separate filer"],
+                index=0,
+                help="Velg om du vil ha alt i ett dokument eller som separate filer."
+            )
         
         st.divider()
         
@@ -151,20 +172,13 @@ def main():
             include_examples = st.checkbox("💡 Eksempler", value=True)
         with col_b:
             include_exercises = st.checkbox("✍️ Oppgaver", value=True)
-            include_solutions = st.checkbox("🔑 Fasit", value=True)
+            include_solutions = st.checkbox("🔑 Fasit", value=False, help="Inkluder fasit i selve elevarket")
             
         difficulty = st.select_slider(
             "Vanskelighetsgrad",
             options=["Lett", "Middels", "Vanskelig"],
             value="Middels"
         )
-
-        st.markdown("### 🎯 Differensiering")
-        use_three_levels = st.toggle("Generer med tre nivåer", value=False, help="Lager tre varianter av arket: Grunnleggende, Middels og Utfordring.")
-        differentiation = "three_levels" if use_three_levels else "single"
-
-        st.markdown("### 🔑 Fasit")
-        include_answer_key = st.toggle("Generer separat fasit", value=True, help="Lager et eget dokument med steg-for-steg løsninger.")
 
     # --- MAIN CONTENT ---
     
@@ -243,65 +257,66 @@ def main():
                         st.error(f"Kunne ikke koble til backend: {e}")
 
     with col2:
-        st.markdown('<div class="section-header">✨ Forhåndsvisning og Eksport</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">✨ Dokumenter og Eksport</div>', unsafe_allow_html=True)
         
         if st.session_state.generated_content:
             res = st.session_state.generated_content
             
-            # Action buttons
-            c1, c2, c3 = st.columns(3)
-            ext = ".tex" if res['format'] == "latex" else ".typ"
+            # Status and Download Section
+            st.markdown("### 📂 Dine filer er klare")
             
+            # 1. Elevark Status
+            c1, c2 = st.columns([3, 1])
             with c1:
-                # PDF Download (Primary)
+                levels_str = " (Nivå 1, 2, 3)" if res['config'].get('differentiation') == "three_levels" else ""
+                st.markdown(f"✅ **Elevark{levels_str}**")
+            with c2:
                 if res.get("pdf_base64"):
                     pdf_bytes = base64.b64decode(res["pdf_base64"])
                     st.download_button(
-                        label="📕 Elevark (PDF)",
+                        label="📥 Last ned",
                         data=pdf_bytes,
                         file_name=f"elevark_{datetime.now().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf",
+                        key="dl_elevark",
                         use_container_width=True
                     )
-                else:
-                    st.button("📕 PDF Feilet", disabled=True, use_container_width=True, help=res.get("compilation_error"))
-            
-            with c2:
-                # Answer Key Download
-                if res.get("answer_key_pdf_base64"):
-                    ans_bytes = base64.b64decode(res["answer_key_pdf_base64"])
-                    st.download_button(
-                        label="🔑 Fasit (PDF)",
-                        data=ans_bytes,
-                        file_name=f"fasit_{datetime.now().strftime('%Y%m%d')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
-                else:
-                    st.download_button(
-                        label=f"📥 Kildekode ({res['format'].upper()})",
-                        data=res['content'],
-                        file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}{ext}",
-                        mime="text/plain",
-                        use_container_width=True
-                    )
-            
-            with c3:
-                # Source Code Download (if c2 is used for Fasit)
-                if res.get("answer_key_pdf_base64"):
-                    st.download_button(
-                        label=f"📥 Kildekode",
-                        data=res['content'],
-                        file_name=f"matultimate_{datetime.now().strftime('%Y%m%d')}{ext}",
-                        mime="text/plain",
-                        use_container_width=True
-                    )
-                else:
-                    # Word Export (only for LaTeX)
-                    if res['format'] == 'latex':
-                        st.button("📘 Word (.docx)", disabled=True, use_container_width=True, help="Kommer snart")
+
+            # 2. Fasit Status
+            if res['config'].get('include_answer_key'):
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.markdown("✅ **Komplett Fasit** (steg-for-steg)")
+                with c2:
+                    if res.get("answer_key_pdf_base64"):
+                        ans_bytes = base64.b64decode(res["answer_key_pdf_base64"])
+                        st.download_button(
+                            label="📥 Last ned",
+                            data=ans_bytes,
+                            file_name=f"fasit_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf",
+                            key="dl_fasit",
+                            use_container_width=True
+                        )
                     else:
-                        st.button("⭐ Lagre i bank", use_container_width=True)
+                        st.button("⏳ Venter...", disabled=True, use_container_width=True)
+
+            # 3. Source Code
+            c1, c2 = st.columns([3, 1])
+            with c1:
+                st.markdown(f"✅ **Kildekode** ({res['format'].upper()})")
+            with c2:
+                ext = ".tex" if res['format'] == "latex" else ".typ"
+                st.download_button(
+                    label="📥 Last ned",
+                    data=res['content'],
+                    file_name=f"kildekode_{datetime.now().strftime('%Y%m%d')}{ext}",
+                    mime="text/plain",
+                    key="dl_source",
+                    use_container_width=True
+                )
+
+            st.divider()
 
             # Error handling for compilation
             if res.get("compilation_error"):
@@ -310,12 +325,12 @@ def main():
 
             # PDF Preview
             if res.get("pdf_base64"):
-                st.markdown("#### 📄 Forhåndsvisning")
+                st.markdown("#### 📄 Forhåndsvisning (Elevark)")
                 pdf_display = f'<iframe src="data:application/pdf;base64,{res["pdf_base64"]}" width="100%" height="600" type="application/pdf"></iframe>'
                 st.markdown(pdf_display, unsafe_allow_html=True)
 
             # Content Preview
-            with st.expander("Se kildekode", expanded=False):
+            with st.expander("Se rå kildekode", expanded=False):
                 st.markdown(f"**Format:** `{res['format'].upper()}` | **Generert:** `{datetime.now().strftime('%H:%M:%S')}`")
                 st.code(res['content'], language=res['format'])
                 
