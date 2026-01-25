@@ -6,8 +6,12 @@ from crewai import Agent, Task, Crew, Process, LLM
 from app.models.config import MaterialConfig
 from app.prompts.orchestrator import ORCHESTRATOR_PROMPT
 from app.agents.pedagogy.vgs import VGSAgent
+from app.agents.pedagogy.barneskole import BarneskoleAgent
+from app.agents.pedagogy.mellomtrinn import MellomtrinnAgent
+from app.agents.pedagogy.ungdomsskole import UngdomsskoleAgent
 from app.agents.figur_agent import FigurAgent
 from app.core.sanitizer import strip_markdown_fences
+from app.core.curriculum import Klassetrinn, get_aldersnivaa, Aldersnivaa
 
 # Konfigurer logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -77,20 +81,39 @@ class IntelligentOrchestrator:
         Bygger et Crew basert på produksjonsplanen.
         """
         plan = self.create_plan(config)
-        agents = []
-        tasks = []
+        
+        # Velg pedagog-agent basert på aldersnivå fra plan eller config
+        aldersnivaa = plan.get("aldersnivå")
+        
+        # Fallback til curriculum-logikk hvis plan er uklar
+        if not aldersnivaa or aldersnivaa == "ukjent":
+            try:
+                trinn_enum = Klassetrinn(config.klassetrinn.lower())
+                aldersnivaa_enum = get_aldersnivaa(trinn_enum)
+                aldersnivaa = aldersnivaa_enum.value
+            except:
+                aldersnivaa = "ungdomsskole"
 
-        # Her vil vi legge til logikk for å velge agenter basert på plan
-        # Dette er en forenklet versjon for å fikse import-feilen
+        # Instansier riktig pedagog
+        if "vgs" in aldersnivaa:
+            pedagog_instance = VGSAgent(llm=self.llm)
+        elif "barneskole_små" in aldersnivaa:
+            pedagog_instance = BarneskoleAgent(llm=self.llm)
+        elif "barneskole_store" in aldersnivaa:
+            pedagog_instance = MellomtrinnAgent(llm=self.llm)
+        else:
+            pedagog_instance = UngdomsskoleAgent(llm=self.llm)
+            
+        pedagog = pedagog_instance.get_agent()
+
+        # Hent andre agenter
         from app.services.agents import MaTultimateAgents
         agent_factory = MaTultimateAgents()
         
-        pedagog = agent_factory.pedagogue(config)
         matematiker = agent_factory.mathematician(config)
         redaktor = agent_factory.editor(config)
         
-        # Hent LLM fra agent_factory for å bruke i FigurAgent
-        figur_agent_instance = FigurAgent(llm=agent_factory.llm)
+        figur_agent_instance = FigurAgent() # Bruker intern MathEngine
         figur_agent = figur_agent_instance.get_agent()
 
         agents = [pedagog, matematiker, redaktor, figur_agent]
