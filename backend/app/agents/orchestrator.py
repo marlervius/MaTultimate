@@ -10,6 +10,7 @@ from app.agents.pedagogy.barneskole import BarneskoleAgent
 from app.agents.pedagogy.mellomtrinn import MellomtrinnAgent
 from app.agents.pedagogy.ungdomsskole import UngdomsskoleAgent
 from app.agents.figur_agent import FigurAgent
+from app.agents.redaktor_agent import RedaktorAgent
 from app.core.sanitizer import strip_markdown_fences
 from app.core.curriculum import Klassetrinn, get_aldersnivaa, Aldersnivaa
 
@@ -111,7 +112,10 @@ class IntelligentOrchestrator:
         agent_factory = MaTultimateAgents()
         
         matematiker = agent_factory.mathematician(config)
-        redaktor = agent_factory.editor(config)
+        
+        # Bruk den nye RedaktorAgent
+        redaktor_instance = RedaktorAgent(llm=self.llm)
+        redaktor = redaktor_instance.get_agent()
         
         figur_agent_instance = FigurAgent() # Bruker intern MathEngine
         figur_agent = figur_agent_instance.get_agent()
