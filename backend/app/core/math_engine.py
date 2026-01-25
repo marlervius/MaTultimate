@@ -31,14 +31,16 @@ class MathEngine:
         except Exception as e:
             raise ValueError(f"Kunne ikke beregne tangent for {funksjon_str}: {e}")
 
-    def sympy_til_tikz(self, expr_str: str) -> str:
+    def verify_derivative(self, funksjon_str: str, derivert_str: str) -> bool:
         """
-        Konverterer SymPy-syntaks til TikZ/pgfplots-kompatibel syntaks.
+        Verifiserer om derivert_str er den korrekte deriverte av funksjon_str.
         """
-        # SymPy bruker ** for potens, TikZ bruker ^
-        # Vi må også håndtere at pgfplots forstår x^2, men ikke alltid 2x (må være 2*x)
-        # Heldigvis er sympify/str ofte ganske likt, men vi gjør noen erstatninger.
-        
-        # Enkel konvertering for nå
-        res = expr_str.replace("**", "^")
-        return res
+        try:
+            expr = sp.sympify(funksjon_str)
+            correct_derivert = sp.diff(expr, self.x)
+            user_derivert = sp.sympify(derivert_str)
+            
+            # Sjekk om de er matematisk ekvivalente
+            return sp.simplify(correct_derivert - user_derivert) == 0
+        except Exception:
+            return False

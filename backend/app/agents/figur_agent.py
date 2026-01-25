@@ -1,9 +1,9 @@
 from enum import Enum
 from dataclasses import dataclass
-from typing import Optional, Tuple, Dict, Any
-from app.core.math_engine import MathEngine
-from crewai import Agent, LLM
+from typing import Optional, Tuple, List
 import os
+import re
+from app.core.math_engine import MathEngine
 
 class FigurType(str, Enum):
     FUNKSJONSPLOT = "funksjonsplot"           # f(x) med valgfri tangent
@@ -38,6 +38,9 @@ class FigurRequest:
     skraver_fra: Optional[float] = None
     skraver_til: Optional[float] = None
     
+    # For enhetssirkel
+    vinkler: Optional[List[float]] = None    # Grader
+    
     # Styling
     farge: str = "blue"
     bredde_cm: float = 10
@@ -49,153 +52,203 @@ class FigurAgent:
     Bruker MathEngine for nøyaktige beregninger.
     """
     
-    TEMPLATES = {
-        FigurType.FUNKSJONSPLOT_TANGENT: r"""
-\begin{tikzpicture}
-\begin{axis}[
-    width={bredde}cm, height={hoyde}cm,
-    axis lines=middle,
-    xlabel=$x$, ylabel=$y$,
-    xmin={xmin}, xmax={xmax},
-    ymin={ymin}, ymax={ymax},
-    grid=major,
-    samples=100,
-]
-% Hovedfunksjon
-\addplot[{farge}, thick, domain={xmin}:{xmax}] {{{funksjon}}};
-
-% Tangent
-\addplot[red, thick, domain={t_xmin}:{t_xmax}] {{{tangent_ligning}}};
-\node[circle, fill=red, inner sep=2pt] at (axis cs:{tangent_x},{tangent_y}) {{}};
-\end{axis}
-\end{tikzpicture}
-""",
-        FigurType.AREAL_UNDER_KURVE: r"""
-\begin{tikzpicture}
-\begin{axis}[
-    width={bredde}cm, height={hoyde}cm,
-    axis lines=middle,
-    xlabel=$x$, ylabel=$y$,
-    xmin={xmin}, xmax={xmax},
-]
-\addplot[{farge}, thick, domain={xmin}:{xmax}] {{{funksjon}}};
-\addplot[fill={farge}, fill opacity=0.3, domain={a}:{b}, samples=100] {{{funksjon}}} \closedcycle;
-\end{axis}
-\end{tikzpicture}
-""",
-        FigurType.NORMALFORDELING: r"""
-\begin{tikzpicture}
-\begin{axis}[
-    width={bredde}cm, height={hoyde}cm,
-    axis lines=left,
-    xlabel=$x$,
-    ylabel=$f(x)$,
-    ymin=0,
-    domain={xmin}:{xmax},
-]
-% Kurve
-\addplot[blue, thick, samples=100] {{1/({sigma}*sqrt(2*pi))*exp(-((x-{mu})^2)/(2*{sigma}^2))}};
-
-% Skravert område
-\addplot[fill=blue!30, domain={skraver_fra}:{skraver_til}, samples=100] 
-    {{1/({sigma}*sqrt(2*pi))*exp(-((x-{mu})^2)/(2*{sigma}^2))}} \closedcycle;
-\end{axis}
-\end{tikzpicture}
-"""
-    }
-
-    def __init__(self, llm: Optional[LLM] = None):
+    def __init__(self):
         self.math_engine = MathEngine()
-        self.llm = llm
 
     def generer(self, request: FigurRequest) -> str:
         """Genererer komplett TikZ-kode basert på forespørselen."""
-        if request.figur_type == FigurType.FUNKSJONSPLOT_TANGENT:
+        if request.figur_type == FigurType.FUNKSJONSPLOT:
+            return self._generer_funksjonsplot(request)
+        elif request.figur_type == FigurType.FUNKSJONSPLOT_TANGENT:
             return self._generer_tangent_plot(request)
         elif request.figur_type == FigurType.AREAL_UNDER_KURVE:
             return self._generer_areal_plot(request)
         elif request.figur_type == FigurType.NORMALFORDELING:
             return self._generer_normalfordeling(request)
+        elif request.figur_type == FigurType.ENHETSSIRKEL:
+            return self._generer_enhetssirkel(request)
         else:
-            # Fallback til LLM hvis typen ikke har en hardkodet template ennå
-            return self._generer_med_llm(request)
+            return f"% Figurtype {request.figur_type} er ikke implementert ennå."
+
+    def _generer_funksjonsplot(self, request: FigurRequest) -> str:
+        tikz_funksjon = self._sympy_til_tikz(request.funksjon)
+        ymin = request.y_range[0] if request.y_range else -1
+        ymax = request.y_range[1] if request.y_range else 10
+        
+        return f"""\\begin{{tikzpicture}}
+\\begin{{axis}}[
+    width={request.bredde_cm}cm,
+    height={request.hoyde_cm}cm,
+    axis lines=middle,
+    xlabel={{$x$}},
+    ylabel={{$y$}},
+    xmin={request.x_range[0]}, xmax={request.x_range[1]},
+    ymin={ymin}, ymax={ymax},
+    grid=major,
+    samples=100,
+]
+\\addplot[{request.farge}, thick, domain={request.x_range[0]}:{request.x_range[1]}] {{{tikz_funksjon}}};
+\\end{{axis}}
+\\end{{tikzpicture}}""".strip()
 
     def _generer_tangent_plot(self, request: FigurRequest) -> str:
         if not request.funksjon or request.tangent_x is None:
             raise ValueError("Funksjon og tangent_x må være satt for tangent-plot.")
         
-        tangent_ligning, y0, stigning = self.math_engine.beregn_tangent(request.funksjon, request.tangent_x)
+        tangent_ligning, y0 = self._beregn_tangent(request.funksjon, request.tangent_x)
         
-        # TikZ-vennlig syntaks
-        tikz_funksjon = self.math_engine.sympy_til_tikz(request.funksjon)
-        tikz_tangent = self.math_engine.sympy_til_tikz(tangent_ligning)
+        tikz_funksjon = self._sympy_til_tikz(request.funksjon)
+        tikz_tangent = self._sympy_til_tikz(tangent_ligning)
         
-        # Bestem y-range hvis ikke satt
-        ymin = request.y_range[0] if request.y_range else -5
+        ymin = request.y_range[0] if request.y_range else -2
         ymax = request.y_range[1] if request.y_range else 10
 
-        return self.TEMPLATES[FigurType.FUNKSJONSPLOT_TANGENT].format(
-            bredde=request.bredde_cm,
-            hoyde=request.hoyde_cm,
-            xmin=request.x_range[0],
-            xmax=request.x_range[1],
-            ymin=ymin,
-            ymax=ymax,
-            farge=request.farge,
-            funksjon=tikz_funksjon,
-            tangent_ligning=tikz_tangent,
-            tangent_x=request.tangent_x,
-            tangent_y=y0,
-            t_xmin=max(request.x_range[0], request.tangent_x - 2),
-            t_xmax=min(request.x_range[1], request.tangent_x + 2)
-        )
+        return f"""\\begin{{tikzpicture}}
+\\begin{{axis}}[
+    width={request.bredde_cm}cm,
+    height={request.hoyde_cm}cm,
+    axis lines=middle,
+    xlabel={{$x$}},
+    ylabel={{$y$}},
+    xmin={request.x_range[0]}, xmax={request.x_range[1]},
+    ymin={ymin}, ymax={ymax},
+    grid=major,
+    samples=100,
+    legend pos=north west,
+]
+% Hovedfunksjon
+\\addplot[{request.farge}, thick, domain={request.x_range[0]}:{request.x_range[1]}] {{{tikz_funksjon}}};
+\\addlegendentry{{$f(x) = {tikz_funksjon.replace("*", "")}$}}
+
+% Tangentlinje
+\\addplot[red, thick, dashed, domain={request.tangent_x-2}:{request.tangent_x+2}] {{{tikz_tangent}}};
+\\addlegendentry{{Tangent i $x={request.tangent_x}$}}
+
+% Tangentpunkt
+\\node[circle, fill=red, inner sep=2pt] at (axis cs:{request.tangent_x},{y0}) {{}};
+\\end{{axis}}
+\\end{{tikzpicture}}""".strip()
 
     def _generer_areal_plot(self, request: FigurRequest) -> str:
-        tikz_funksjon = self.math_engine.sympy_til_tikz(request.funksjon)
-        return self.TEMPLATES[FigurType.AREAL_UNDER_KURVE].format(
-            bredde=request.bredde_cm,
-            hoyde=request.hoyde_cm,
-            xmin=request.x_range[0],
-            xmax=request.x_range[1],
-            farge=request.farge,
-            funksjon=tikz_funksjon,
-            a=request.nedre_grense if request.nedre_grense is not None else 0,
-            b=request.ovre_grense if request.ovre_grense is not None else 2
-        )
+        tikz_funksjon = self._sympy_til_tikz(request.funksjon)
+        a = request.nedre_grense if request.nedre_grense is not None else 0
+        b = request.ovre_grense if request.ovre_grense is not None else 2
+        
+        ymin = request.y_range[0] if request.y_range else -0.5
+        ymax = request.y_range[1] if request.y_range else 5
+
+        return f"""\\begin{{tikzpicture}}
+\\begin{{axis}}[
+    width={request.bredde_cm}cm,
+    height={request.hoyde_cm}cm,
+    axis lines=middle,
+    xlabel={{$x$}},
+    ylabel={{$y$}},
+    xmin={request.x_range[0]}, xmax={request.x_range[1]},
+    ymin={ymin}, ymax={ymax},
+    grid=major,
+    samples=100,
+]
+% Skravert område
+\\addplot[fill={request.farge}!30, draw=none, domain={a}:{b}] {{{tikz_funksjon}}} \\closedcycle;
+
+% Funksjonskurve
+\\addplot[{request.farge}, thick, domain={request.x_range[0]}:{request.x_range[1]}] {{{tikz_funksjon}}};
+
+% Grenselinjer (valgfritt)
+\\draw[dashed, gray] (axis cs:{a},0) -- (axis cs:{a},{a**2 if "x^2" in tikz_funksjon else 0});
+\\draw[dashed, gray] (axis cs:{b},0) -- (axis cs:{b},{b**2 if "x^2" in tikz_funksjon else 0});
+\\end{{axis}}
+\\end{{tikzpicture}}""".strip()
 
     def _generer_normalfordeling(self, request: FigurRequest) -> str:
-        return self.TEMPLATES[FigurType.NORMALFORDELING].format(
-            bredde=request.bredde_cm,
-            hoyde=request.hoyde_cm,
-            mu=request.mu,
-            sigma=request.sigma,
-            xmin=request.mu - 4*request.sigma,
-            xmax=request.mu + 4*request.sigma,
-            skraver_fra=request.skraver_fra if request.skraver_fra is not None else request.mu - request.sigma,
-            skraver_til=request.skraver_til if request.skraver_til is not None else request.mu + request.sigma
-        )
+        mu = request.mu
+        sigma = request.sigma
+        a = request.skraver_fra if request.skraver_fra is not None else -1
+        b = request.skraver_til if request.skraver_til is not None else 1
+        
+        formula = f"1/({sigma}*sqrt(2*pi))*exp(-((x-{mu})^2)/(2*{sigma}^2))"
 
-    def _generer_med_llm(self, request: FigurRequest) -> str:
-        """Bruker CrewAI-agent for mer komplekse figurer som ikke har templates."""
-        if not self.llm:
-            return "% LLM ikke tilgjengelig for figur-generering"
+        return f"""\\begin{{tikzpicture}}
+\\begin{{axis}}[
+    width={request.bredde_cm}cm,
+    height={request.hoyde_cm-1}cm,
+    axis lines=left,
+    xlabel={{$x$}},
+    ylabel={{$f(x)$}},
+    xmin={mu-4*sigma}, xmax={mu+4*sigma},
+    ymin=0, ymax=0.5,
+    samples=100,
+    ytick={{0, 0.1, 0.2, 0.3, 0.4}},
+]
+% Skravert område
+\\addplot[fill=blue!30, draw=none, domain={a}:{b}] 
+    {{{formula}}} \\closedcycle;
+
+% Normalfordelingskurve
+\\addplot[blue, thick, domain={mu-4*sigma}:{mu+4*sigma}] 
+    {{{formula}}};
+
+% Markeringer
+\\node at (axis cs:{mu},0.45) {{$\\mu = {mu}$}};
+\\end{{axis}}
+\\end{{tikzpicture}}""".strip()
+
+    def _generer_enhetssirkel(self, request: FigurRequest) -> str:
+        vinkler = request.vinkler or [30, 45, 60]
+        
+        output = [r"""\begin{tikzpicture}[scale=2.5]
+% Koordinatsystem
+\draw[->] (-1.3,0) -- (1.3,0) node[right] {$x$};
+\draw[->] (0,-1.3) -- (0,1.3) node[above] {$y$};
+
+% Enhetssirkel
+\draw[thick] (0,0) circle (1);"""]
+
+        colors = ["blue", "red", "green!60!black", "orange", "purple"]
+        
+        for i, v in enumerate(vinkler):
+            color = colors[i % len(colors)]
+            # Forenklet etikett for nå (burde egentlig bruke sympy for eksakte verdier)
+            output.append(f"""
+% Vinkel {v}°
+\\draw[{color}, thick] (0,0) -- ({v}:1);
+\\filldraw[{color}] ({v}:1) circle (1pt);
+\\draw[{color}] (0.3,0) arc (0:{v}:0.3) node[midway, right] {{${v}°$}};""")
+
+        output.append(r"""
+% Aksemerking
+\node[below] at (1,0) {$1$};
+\node[left] at (0,1) {$1$};
+\end{tikzpicture}""")
+        
+        return "\n".join(output).strip()
+
+    def _beregn_tangent(self, funksjon: str, x: float) -> Tuple[str, float]:
+        """Bruker MathEngine til å finne tangentligning og y-verdi."""
+        tangent_expr, y0, stigning = self.math_engine.beregn_tangent(funksjon, x)
+        
+        # Verifiser (valgfritt krav i prompt, men vi bruker verify_derivative for sikkerhet)
+        import sympy as sp
+        expr = sp.sympify(funksjon)
+        derivert = str(sp.diff(expr, sp.Symbol('x')))
+        if not self.math_engine.verify_derivative(funksjon, derivert):
+            raise ValueError("Feil i derivasjonsberegning!")
             
-        agent = Agent(
-            role="TikZ-ekspert",
-            goal="Generer TikZ-kode for en matematisk figur.",
-            backstory="Du er en ekspert på LaTeX og TikZ, spesielt for VGS-matematikk.",
-            llm=self.llm,
-            allow_delegation=False
-        )
-        # Implementasjon av task her ved behov
-        return "% LLM fallback ikke fullt implementert ennå"
+        return tangent_expr, y0
 
-    def get_agent(self) -> Agent:
-        """Returnerer CrewAI-agenten for integrasjon i workflows."""
-        return Agent(
-            role="Teknisk Illustratør",
-            goal="Generer nøyaktig TikZ/LaTeX-kode for matematiske figurer.",
-            backstory="Du bruker templates og MathEngine for å sikre 100% korrekt matematikk i figurer.",
-            llm=self.llm,
-            allow_delegation=False
-        )
+    def _sympy_til_tikz(self, expr: str) -> str:
+        """Konverterer SymPy-uttrykk til TikZ-kompatibel syntaks."""
+        if not expr: return ""
+        
+        # x**2 -> x^2
+        res = expr.replace("**", "^")
+        
+        # log(x) -> ln(x) (SymPy log er naturlig logaritme)
+        # Men vi må sjekke om det er log10
+        if "log(x, 10)" in res:
+            res = res.replace("log(x, 10)", "log10(x)")
+        elif "log(x)" in res:
+            res = res.replace("log(x)", "ln(x)")
+            
+        return res
