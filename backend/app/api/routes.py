@@ -27,15 +27,31 @@ async def generate_math_material(request: MaterialRequest):
         )
         
         orchestrator = IntelligentOrchestrator()
-        # Merk: Vi må sikre at generate_material returnerer GenerationResponse i henhold til skjema
-        result = orchestrator.create_dynamic_crew(config).kickoff()
+        # Kjør crewet
+        crew = orchestrator.create_dynamic_crew(config)
+        result = crew.kickoff()
         
-        # Her må vi legge til logikk for å trekke ut PDF fra resultatet
-        # (Dette vil bli utvidet når HybridCompiler er ferdig)
+        # Hent utdata fra siste task (Redaktøren)
+        final_code = result.raw if hasattr(result, 'raw') else str(result)
+        
+        # Forsøk å kompilere til PDF
+        from app.core.compiler import DocumentCompiler
+        compiler = DocumentCompiler()
+        
+        worksheet_pdf = None
+        if config.document_format.value == "typst":
+            # For nå, kompiler uten figurer (hybrid kommer i neste steg)
+            # Vi må konvertere fra async til sync for FastAPI endepunktet hvis det ikke er async
+            import asyncio
+            # Siden vi er i en async def, kan vi bruke await
+            res = await compiler.compile_hybrid(final_code, [])
+            if res.success:
+                worksheet_pdf = res.pdf_base64
         
         return GenerationResponse(
             success=True,
-            source_code=str(result),
+            worksheet_pdf=worksheet_pdf,
+            source_code=final_code,
             metadata={"klassetrinn": request.klassetrinn, "emne": request.emne}
         )
         
