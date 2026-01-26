@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple, List
 import os
 import re
+from crewai import Agent, LLM
 from app.core.math_engine import MathEngine
 
 class FigurType(str, Enum):
@@ -52,8 +53,20 @@ class FigurAgent:
     Bruker MathEngine for nøyaktige beregninger.
     """
     
-    def __init__(self):
+    def __init__(self, llm: Optional[LLM] = None):
         self.math_engine = MathEngine()
+        self.llm = llm
+
+    def get_agent(self) -> Agent:
+        """Returnerer en CrewAI Agent-instans."""
+        from app.prompts.figur import FIGUR_AGENT_PROMPT
+        return Agent(
+            role="Figurspesialist",
+            goal="Generer nøyaktig LaTeX/TikZ-kode for matematiske figurer.",
+            backstory="Du er en ekspert på TikZ og pgfplots, spesialisert på VGS-matematikk.",
+            llm=self.llm,
+            allow_delegation=False
+        )
 
     def generer(self, request: FigurRequest) -> str:
         """Genererer komplett TikZ-kode basert på forespørselen."""

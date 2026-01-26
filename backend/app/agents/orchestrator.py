@@ -117,7 +117,7 @@ class IntelligentOrchestrator:
         redaktor_instance = RedaktorAgent(llm=self.llm)
         redaktor = redaktor_instance.get_agent()
         
-        figur_agent_instance = FigurAgent() # Bruker intern MathEngine
+        figur_agent_instance = FigurAgent(llm=self.llm)
         figur_agent = figur_agent_instance.get_agent()
 
         agents = [pedagog, matematiker, redaktor, figur_agent]
