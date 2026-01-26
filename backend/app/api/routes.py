@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from app.models.schemas import MaterialRequest, GenerationResponse
 from app.agents.orchestrator import IntelligentOrchestrator
 from app.models.config import MaterialConfig
+from app.tools.storage import save_to_history, get_history
 import logging
+from typing import List
 
 router = APIRouter()
 logger = logging.getLogger("API")
@@ -40,13 +42,16 @@ async def generate_math_material(request: MaterialRequest):
         
         worksheet_pdf = None
         if config.document_format.value == "typst":
-            # For nå, kompiler uten figurer (hybrid kommer i neste steg)
-            # Vi må konvertere fra async til sync for FastAPI endepunktet hvis det ikke er async
             import asyncio
-            # Siden vi er i en async def, kan vi bruke await
             res = await compiler.compile_hybrid(final_code, [])
             if res.success:
                 worksheet_pdf = res.pdf_base64
+        
+        # Lagre til historikk (Gjør dette asynkront eller etterpå)
+        try:
+            save_to_history(config, worksheet_pdf if worksheet_pdf else "", None, final_code)
+        except Exception as e:
+            logger.error(f"Kunne ikke lagre til historikk: {e}")
         
         return GenerationResponse(
             success=True,
@@ -58,6 +63,15 @@ async def generate_math_material(request: MaterialRequest):
     except Exception as e:
         logger.error(f"Generering feilet: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Generering feilet: {str(e)}")
+
+@router.get("/history")
+async def fetch_history(limit: int = 10):
+    """Henter genereringshistorikken."""
+    try:
+        return get_history(limit)
+    except Exception as e:
+        logger.error(f"Kunne ikke hente historikk: {e}")
+        return []
 
 @router.get("/health")
 async def health_check():
