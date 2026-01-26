@@ -23,7 +23,7 @@ class MaterialConfig(BaseModel):
     """Konfigurasjon for generering av matematikkmateriell."""
     
     # === Faglig innhold ===
-    klassetrinn: Literal["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "vg1", "vg2", "vg3"]
+    klassetrinn: str = Field(..., description="Klassetrinn eller kursnavn (f.eks. '10', 'R1', '1T')")
     emne: str = Field(..., min_length=2, max_length=100, examples=["Potenser", "Brøk", "Algebra"])
     kompetansemaal: str = Field(..., min_length=10, description="LK20-kompetansemål")
     
@@ -57,6 +57,19 @@ class MaterialConfig(BaseModel):
     # === Metadata ===
     title: Optional[str] = Field(default=None, max_length=100)
     author: Optional[str] = Field(default=None, max_length=50)
+    
+    @field_validator('klassetrinn')
+    @classmethod
+    def validate_klassetrinn(cls, v: str) -> str:
+        """Valider at klassetrinn er et støttet trinn eller kurs."""
+        valid_trinn = [
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+            "1t", "1p", "2p", "2t", "r1", "r2", "s1", "s2",
+            "vg1", "vg2", "vg3"
+        ]
+        if v.lower() not in valid_trinn:
+            raise ValueError(f"Ugyldig klassetrinn: {v}. Må være ett av {valid_trinn}")
+        return v # Bevar original casing hvis ønskelig, eller returner v.lower()
     
     @field_validator('emne')
     @classmethod
