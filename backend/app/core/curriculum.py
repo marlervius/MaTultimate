@@ -1042,6 +1042,84 @@ VG3_S2_MAAL = [
 
 
 # =============================================================================
+# GRENSER OG BEGRENSNINGER (For Agent-styring)
+# =============================================================================
+
+GRADE_BOUNDARIES = {
+    "1-4": {
+        "description": "Barnetrinnet - konkret, lekbasert matematikk",
+        "allowed_concepts": [
+            "Addisjon og subtraksjon opp til 1000",
+            "Multiplikasjon (gangetabellen 1-10)",
+            "Enkel divisjon med og uten rest",
+            "Brøker som del av helhet (1/2, 1/4, 1/3)",
+            "Geometriske grunnformer",
+            "Klokka og tid",
+        ],
+        "forbidden_concepts": [
+            "Negative tall", "Algebra", "Prosent", "Likninger", "Vektorer"
+        ]
+    },
+    "5-7": {
+        "description": "Mellomtrinnet - overgang til abstrakt tenkning",
+        "allowed_concepts": [
+            "Negative tall", "Desimaltall", "Brøkregning", "Prosent",
+            "Enkle likninger (x + 5 = 12)", "Koordinatsystem", "Vinkler"
+        ],
+        "forbidden_concepts": [
+            "Pytagoras", "Ligningssett", "Andregradslikninger", "Derivasjon"
+        ]
+    },
+    "8-10": {
+        "description": "Ungdomstrinnet - algebra og funksjoner",
+        "allowed_concepts": [
+            "Potensregler", "Bokstavregning", "Likninger", "Pytagoras",
+            "Lineære funksjoner", "Likningssett", "Andregradslikninger (10. trinn)",
+            "Trigonometri (sin, cos, tan i rettvinklet trekant)"
+        ],
+        "forbidden_concepts": [
+            "Derivasjon", "Vektorer", "Logaritmer", "Integrasjon"
+        ]
+    },
+    "vgs": {
+        "description": "Videregående skole - formell og avansert matematikk",
+        "allowed_concepts": [
+            "Derivasjon", "Integrasjon", "Vektorer", "Logaritmer",
+            "Sammensatte funksjoner", "Bevis", "Modellering"
+        ],
+        "forbidden_concepts": [
+            "Partielle deriverte", "Lineær algebra (matriser)", "Komplekse tall"
+        ]
+    }
+}
+
+def get_grade_boundaries(grade: str) -> dict:
+    """Henter grensebetingelser for et trinn."""
+    grade_clean = grade.lower().replace(" ", "").replace(".", "")
+    
+    if grade_clean in ["1", "2", "3", "4"]: return GRADE_BOUNDARIES["1-4"]
+    if grade_clean in ["5", "6", "7"]: return GRADE_BOUNDARIES["5-7"]
+    if grade_clean in ["8", "9", "10"]: return GRADE_BOUNDARIES["8-10"]
+    return GRADE_BOUNDARIES["vgs"]
+
+def format_boundaries_for_prompt(grade: str) -> str:
+    """Formaterer grensebetingelser for bruk i AI-prompts."""
+    boundaries = get_grade_boundaries(grade)
+    
+    prompt = f"=== PEDAGOGISKE GRENSER FOR {grade.upper()} ===\n"
+    prompt += f"Beskrivelse: {boundaries['description']}\n\n"
+    
+    prompt += "TILLATTE KONSEPTER (Hold deg innenfor disse):\n"
+    for c in boundaries['allowed_concepts']:
+        prompt += f"- {c}\n"
+        
+    prompt += "\nFORBUDTE KONSEPTER (IKKE bruk disse, for avansert):\n"
+    for c in boundaries['forbidden_concepts']:
+        prompt += f"- {c}\n"
+        
+    return prompt
+
+# =============================================================================
 # HJELPEFUNKSJONER
 # =============================================================================
 
