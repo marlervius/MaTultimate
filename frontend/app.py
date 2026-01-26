@@ -9,7 +9,11 @@ from typing import Optional, Dict, Any
 load_dotenv()
 
 # Konfigurasjon
-API_URL = os.getenv("API_URL", "http://localhost:8080/api/v1")
+base_url = os.getenv("API_URL", "http://localhost:8080").rstrip("/")
+if not base_url.endswith("/api/v1") and not "/api/v1/" in base_url:
+    API_URL = f"{base_url}/api/v1"
+else:
+    API_URL = base_url
 
 st.set_page_config(
     page_title="MaTultimate - AI Matematikk for Lærere",
