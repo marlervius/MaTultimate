@@ -12,8 +12,6 @@ from app.agents.pedagogy.ungdomsskole import UngdomsskoleAgent
 from app.agents.figur_agent import FigurAgent
 from app.agents.redaktor_agent import RedaktorAgent
 from app.core.sanitizer import strip_markdown_fences
-from app.core.curriculum import Klassetrinn, get_aldersnivaa, Aldersnivaa
-
 # Konfigurer logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("Orchestrator")
@@ -81,6 +79,8 @@ class IntelligentOrchestrator:
         """
         Bygger et Crew basert på produksjonsplanen.
         """
+        from app.core.curriculum import Klassetrinn, get_aldersnivaa, Aldersnivaa
+        
         plan = self.create_plan(config)
         
         # Velg pedagog-agent basert på aldersnivå fra plan eller config
