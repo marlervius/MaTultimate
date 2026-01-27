@@ -37,15 +37,27 @@ async def generate_math_material(request: MaterialRequest):
         final_code = result.raw if hasattr(result, 'raw') else str(result)
         
         # Forsøk å kompilere til PDF
-        from app.core.compiler import DocumentCompiler
+        from app.core.compiler import DocumentCompiler, TypstTemplates
         compiler = DocumentCompiler()
         
+        # Legg til preamble hvis det mangler (agenter glemmer det ofte)
+        if config.document_format.value == "typst" and not final_code.strip().startswith("#set"):
+            preamble = TypstTemplates.worksheet_header(
+                title=config.emne,
+                grade=config.klassetrinn,
+                topic=config.emne
+            )
+            final_code = preamble + "\n" + final_code
+
         worksheet_pdf = None
         if config.document_format.value == "typst":
             import asyncio
+            # TODO: Trekk ut figurer fra koden hvis de finnes
             res = await compiler.compile_hybrid(final_code, [])
             if res.success:
                 worksheet_pdf = res.pdf_base64
+            else:
+                logger.error(f"Kompilering feilet: {res.log}")
         
         # Lagre til historikk (Gjør dette asynkront eller etterpå)
         try:

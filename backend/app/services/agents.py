@@ -126,6 +126,7 @@ class MaTultimateAgents:
                     "   - #hint[...] for scaffolding-hint på nivå 1\n\n"
                     "4. For matematikk, bruk $...$ for inline og $ ... $ for utstilt\n\n"
                     "5. Nummerer oppgaver konsekvent: 1a, 1b, 2a, 2b osv.\n\n"
+                    "6. VIKTIG: IKKE inkluder preamble (#set page, #let oppgave osv.). Dette blir lagt til automatisk.\n\n"
                     "=== STRUKTUR ===\n"
                     "// Nivå 1\n"
                     "#heading(level: 1)[Nivå 1 – Grunnleggende]\n"

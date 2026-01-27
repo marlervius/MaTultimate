@@ -165,6 +165,90 @@ class DocumentCompiler:
             except Exception as e:
                 return CompilationResult(success=False, log=str(e), warnings=warnings)
 
+# =============================================================================
+# TYPST TEMPLATES
+# =============================================================================
+
+class TypstTemplates:
+    """Ferdiglagde Typst-maler for matematikkdokumenter."""
+    
+    @staticmethod
+    def worksheet_header(
+        title: str,
+        grade: str,
+        topic: str
+    ) -> str:
+        """Standard header for arbeidsark."""
+        return f"""#set text(lang: "nb", font: "New Computer Modern", size: 11pt)
+#set page(paper: "a4", margin: 2.5cm)
+#set heading(numbering: "1.1.")
+
+// Definisjon av stiler for bokser
+#let box_style(title, body, color) = {{
+  rect(
+    width: 100%,
+    fill: color.lighten(95%),
+    stroke: 0.5pt + color,
+    inset: 12pt,
+    radius: 4pt,
+    stack(
+      spacing: 8pt,
+      text(weight: "bold", size: 1.1em, fill: color.darken(30%))[#title],
+      body
+    )
+  )
+}}
+
+#let oppgave(body) = box_style("Oppgave", body, blue)
+#let utfordring(body) = box_style("Utfordring", body, red)
+#let eksempel(title: "Eksempel", body) = box_style(title, body, gray)
+#let definisjon(body) = box_style("Definisjon", body, green)
+#let teorem(title: "Teorem", body) = box_style(title, body, red)
+#let hint(body) = box_style("Hint", body, orange)
+
+// Tittel
+#align(center)[
+  #text(size: 1.5em, weight: "bold")[{title}]
+  
+  #text(size: 1.1em, style: "italic")[{grade} · {topic}]
+]
+
+#v(1em)
+"""
+    
+    @staticmethod
+    def answer_key_header(
+        title: str,
+        grade: str,
+        topic: str
+    ) -> str:
+        """Header for fasit-dokument."""
+        return f"""#set text(lang: "nb", font: "New Computer Modern", size: 10pt)
+#set page(paper: "a4", margin: 2cm)
+
+#align(center)[
+  #text(size: 1.3em, weight: "bold")[Fasit: {title}]
+  
+  #text(size: 1em, style: "italic", fill: gray)[{grade} · {topic}]
+  
+  #v(0.5em)
+  #text(size: 0.9em, fill: red)[Kun for lærerbruk]
+]
+
+#line(length: 100%, stroke: 0.5pt)
+#v(1em)
+"""
+    
+    @staticmethod
+    def level_divider(level: int, description: str) -> str:
+        """Skillelinje mellom differensieringsnivåer."""
+        return f"""
+#v(2em)
+#line(length: 100%, stroke: 1pt + gray)
+#heading(level: 1)[Nivå {level} – {description}]
+#v(1em)
+"""
+
     def check_dependencies(self) -> Dict[str, Any]:
         """Sjekk at verktøyene finnes."""
         results = {}
