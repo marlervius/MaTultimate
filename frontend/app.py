@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import base64
 import os
+import time
 from dotenv import load_dotenv
 from typing import Optional, Dict, Any
 
@@ -122,17 +123,34 @@ def main():
                             "document_format": doc_format.split()[0].lower()
                         }
                         
-                        response = requests.post(f"{API_URL}/generate", json=payload, timeout=300)
+                        response = requests.post(f"{API_URL}/generate", json=payload, timeout=10)
                         
                         if response.status_code == 200:
-                            data = response.json()
-                            if data.get("success"):
-                                st.success("✅ Materiell generert!")
-                                
-                                # Lagre i session state for visning
-                                st.session_state.current_result = data
+                            st.success("🚀 Generering startet! Jeg henter PDF-en så snart den er klar...")
+                            
+                            # Polling-logikk
+                            found = False
+                            with st.status("Venter på at agentene skal bli ferdige...", expanded=True) as status:
+                                for i in range(60): # Sjekk i 5 minutter
+                                    time.sleep(5)
+                                    hist_res = requests.get(f"{API_URL}/history?limit=1")
+                                    if hist_res.status_code == 200:
+                                        history = hist_res.json()
+                                        if history and history[0]['emne'] == emne:
+                                            st.session_state.current_result = {
+                                                "success": True,
+                                                "worksheet_pdf": history[0].get('worksheet_pdf_b64'),
+                                                "source_code": history[0].get('source_code')
+                                            }
+                                            status.update(label="✅ Ferdig!", state="complete")
+                                            found = True
+                                            break
+                                    status.write(f"Sjekker status... ({i*5}s)")
+                            
+                            if not found:
+                                st.warning("Det tar litt tid, men PDF-en dukker opp i Oppgavebanken snart!")
                             else:
-                                st.error(f"Generering feilet: {data.get('error_message')}")
+                                st.rerun()
                         else:
                             st.error(f"API-feil ({response.status_code}): {response.text}")
                     except Exception as e:
