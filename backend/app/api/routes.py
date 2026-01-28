@@ -57,13 +57,27 @@ async def generate_math_material(request: MaterialRequest, background_tasks: Bac
             from app.core.compiler import DocumentCompiler, TypstTemplates
             compiler = DocumentCompiler()
             
-            if config.document_format.value == "typst" and not final_code.strip().startswith("#set"):
+            if config.document_format.value == "typst":
+                # Fjern AI-generert preamble hvis den finnes, vi bruker vår egen
+                lines = final_code.split('\n')
+                content_lines = []
+                skip_preamble = True
+                for line in lines:
+                    # Hopp over AI-genererte #set linjer i starten
+                    if skip_preamble and line.strip().startswith('#set'):
+                        continue
+                    skip_preamble = False
+                    content_lines.append(line)
+                
+                content = '\n'.join(content_lines).strip()
+                
+                # Legg til vår preamble
                 preamble = TypstTemplates.worksheet_header(
                     title=config.emne,
                     grade=config.klassetrinn,
                     topic=config.emne
                 )
-                final_code = preamble + "\n" + final_code
+                final_code = preamble + "\n" + content
 
             worksheet_pdf = None
             if config.document_format.value == "typst":

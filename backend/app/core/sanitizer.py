@@ -25,9 +25,14 @@ def sanitize_typst_code(code: str) -> str:
     # 1. Fjern markdown fences
     code = strip_markdown_fences(code)
     
-    # 2. Fjern ugyldige font-spesifikasjoner som kanskje ikke finnes
-    code = re.sub(r'font:\s*"[^"]*libertine[^"]*"', '', code, flags=re.IGNORECASE)
-    code = re.sub(r'font:\s*"[^"]*computer\s*modern[^"]*"', '', code, flags=re.IGNORECASE)
+    # 2. Fjern HELE #set text linjer som inneholder font-spesifikasjoner
+    # og erstatt med en ren versjon
+    code = re.sub(
+        r'#set\s+text\s*\([^)]*font:[^)]*\)',
+        '#set text(lang: "nb", size: 11pt)',
+        code,
+        flags=re.IGNORECASE
+    )
     
     # 3. Fiks LaTeX-syntaks som AI ofte blander inn
     # \frac{a}{b} -> $frac(a, b)$ (men bare utenfor $ $)
