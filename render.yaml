@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: matultimate-backend
+    env: docker
+    region: frankfurt
+    plan: starter
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: LLM_MODEL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        value: sqlite:///./matultimate.db
+    dockerFilePath: ./backend/Dockerfile
+    dockerContext: ./backend
