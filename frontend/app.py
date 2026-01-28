@@ -123,7 +123,7 @@ def main():
                             "document_format": doc_format.split()[0].lower()
                         }
                         
-                        response = requests.post(f"{API_URL}/generate", json=payload, timeout=30)
+                        response = requests.post(f"{API_URL}/generate", json=payload, timeout=60)
                         
                         if response.status_code == 200:
                             st.success("🚀 Generering startet! Jeg henter PDF-en så snart den er klar...")
@@ -164,7 +164,7 @@ def main():
                                 for i in range(60): # Sjekk i 5 minutter
                                     time.sleep(10) # Litt lengre intervall ved timeout
                                     try:
-                                        hist_res = requests.get(f"{API_URL}/history?limit=1", timeout=10)
+                                        hist_res = requests.get(f"{API_URL}/history?limit=1", timeout=30)
                                         if hist_res.status_code == 200:
                                             history = hist_res.json()
                                             if history and history[0]['emne'] == emne:
@@ -234,7 +234,7 @@ def main():
         
         if st.button("🔄 Oppdater historikk"):
             try:
-                response = requests.get(f"{API_URL}/history", timeout=10)
+                response = requests.get(f"{API_URL}/history", timeout=30)
                 if response.status_code == 200:
                     st.session_state.history = response.json()
                 else:

@@ -20,7 +20,8 @@ class MaTultimateAgents:
             api_key=api_key,
             temperature=0.4
         )
-        self.figur_factory = FigurAgent()
+        # FigurAgent krever llm parameter
+        self.figur_factory = FigurAgent(llm=self.llm)
 
     def pedagogue(self, config: MaterialConfig) -> Agent:
         # Use getattr to safely access properties or fields

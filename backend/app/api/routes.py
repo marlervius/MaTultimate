@@ -4,6 +4,8 @@ from app.agents.orchestrator import IntelligentOrchestrator
 from app.models.config import MaterialConfig
 from app.tools.storage import save_to_history, get_history
 import logging
+import asyncio
+import traceback
 from typing import List
 
 router = APIRouter()
@@ -14,10 +16,13 @@ async def generate_math_material(request: MaterialRequest, background_tasks: Bac
     """
     Starter generering i bakgrunnen for å unngå timeout.
     """
-    logger.info(f"Starter bakgrunnsjobb for: {request.emne}")
+    logger.info(f"Mottatt forespørsel: {request.emne} ({request.klassetrinn})")
     
-    async def run_generation():
+    def run_generation_sync():
+        """Synkron funksjon som kjører i bakgrunnen."""
         try:
+            logger.info(f"Bakgrunnsjobb starter for: {request.emne}")
+            
             config = MaterialConfig(
                 klassetrinn=request.klassetrinn,
                 emne=request.emne,
@@ -29,10 +34,22 @@ async def generate_math_material(request: MaterialRequest, background_tasks: Bac
             
             orchestrator = IntelligentOrchestrator()
             crew = orchestrator.create_dynamic_crew(config)
+            
+            logger.info("Crew opprettet, starter kickoff...")
             result = crew.kickoff()
+            logger.info("Crew kickoff ferdig!")
             
             final_code = result.raw if hasattr(result, 'raw') else str(result)
             
+            # Fjern markdown fences hvis de finnes
+            if "```" in final_code:
+                import re
+                final_code = re.sub(r'```(?:typst|latex)?\n?', '', final_code)
+                final_code = final_code.replace('```', '').strip()
+            
+            logger.info(f"Kode generert ({len(final_code)} tegn), starter kompilering...")
+            
+            # Kompiler til PDF
             from app.core.compiler import DocumentCompiler, TypstTemplates
             compiler = DocumentCompiler()
             
@@ -46,21 +63,45 @@ async def generate_math_material(request: MaterialRequest, background_tasks: Bac
 
             worksheet_pdf = None
             if config.document_format.value == "typst":
-                res = await compiler.compile_hybrid(final_code, [])
-                if res.success:
-                    worksheet_pdf = res.pdf_base64
+                # Kjør async kompilering synkront
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    res = loop.run_until_complete(compiler.compile_hybrid(final_code, []))
+                    if res.success:
+                        worksheet_pdf = res.pdf_base64
+                        logger.info("PDF kompilert!")
+                    else:
+                        logger.warning(f"PDF-kompilering feilet: {res.log}")
+                finally:
+                    loop.close()
             
             save_to_history(config, worksheet_pdf if worksheet_pdf else "", None, final_code)
-            logger.info(f"Bakgrunnsjobb ferdig for: {request.emne}")
+            logger.info(f"Bakgrunnsjobb FERDIG for: {request.emne}")
             
         except Exception as e:
             logger.error(f"Bakgrunnsgenerering feilet: {str(e)}")
+            logger.error(traceback.format_exc())
+            # Lagre feilet forsøk med feilmelding
+            try:
+                save_to_history(
+                    MaterialConfig(
+                        klassetrinn=request.klassetrinn,
+                        emne=f"[FEILET] {request.emne}",
+                        kompetansemaal=request.kompetansemaal
+                    ),
+                    "",
+                    None,
+                    f"% Generering feilet: {str(e)}"
+                )
+            except:
+                pass
 
-    background_tasks.add_task(run_generation)
+    background_tasks.add_task(run_generation_sync)
     
     return {
         "success": True, 
-        "message": "Generering startet i bakgrunnen. Sjekk Oppgavebanken om et øyeblikk.",
+        "message": "Generering startet i bakgrunnen. Sjekk Oppgavebanken om 1-2 minutter.",
         "status": "processing"
     }
 

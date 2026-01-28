@@ -1,9 +1,19 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 from app.tools.storage import init_db
 import uvicorn
 
 app = FastAPI(title="MaTultimate API - VGS Edition")
+
+# CORS - tillat frontend å koble til
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # I produksjon: spesifiser Streamlit-domenet
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialiser database ved oppstart
 @app.on_event("startup")
