@@ -123,7 +123,7 @@ def main():
                             "document_format": doc_format.split()[0].lower()
                         }
                         
-                        response = requests.post(f"{API_URL}/generate", json=payload, timeout=10)
+                        response = requests.post(f"{API_URL}/generate", json=payload, timeout=30)
                         
                         if response.status_code == 200:
                             st.success("🚀 Generering startet! Jeg henter PDF-en så snart den er klar...")
