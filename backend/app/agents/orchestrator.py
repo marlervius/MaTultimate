@@ -112,6 +112,9 @@ class IntelligentOrchestrator:
         agent_factory = MaTultimateAgents()
         
         matematiker = agent_factory.mathematician(config)
+        # Legg til begrensninger for å hindre frys/looping
+        matematiker.max_iter = 3
+        matematiker.allow_delegation = False
         
         # Bruk den nye RedaktorAgent
         redaktor_instance = RedaktorAgent(llm=self.llm)
@@ -129,7 +132,7 @@ class IntelligentOrchestrator:
         )
 
         task2 = Task(
-            description=f"Skriv {config.document_format.value}-kode basert på planen.",
+            description=f"Skriv {config.document_format.value}-kode basert på planen. VIKTIG: Returner KUN rå kode uten markdown fences eller forklaringer.",
             expected_output=f"Kompilerbar {config.document_format.value}-kode.",
             agent=matematiker,
             context=[task1]
