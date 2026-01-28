@@ -154,7 +154,38 @@ def main():
                         else:
                             st.error(f"API-feil ({response.status_code}): {response.text}")
                     except Exception as e:
-                        st.error(f"Kunne ikke koble til backend: {str(e)}")
+                        if "timed out" in str(e).lower():
+                            st.warning("⏱️ Agentene bruker litt ekstra tid på de komplekse oppgavene. Ingen fare!")
+                            st.info("💡 Jeg har startet genereringen i bakgrunnen. Du kan vente her, eller sjekke 'Oppgavebank & Historikk'-fanen om et par minutter.")
+                            
+                            # Start polling selv om det var en timeout på selve POST-forespørselen
+                            found = False
+                            with st.status("Lytter etter ferdigstilt materiale fra backend...", expanded=True) as status:
+                                for i in range(60): # Sjekk i 5 minutter
+                                    time.sleep(10) # Litt lengre intervall ved timeout
+                                    try:
+                                        hist_res = requests.get(f"{API_URL}/history?limit=1", timeout=10)
+                                        if hist_res.status_code == 200:
+                                            history = hist_res.json()
+                                            if history and history[0]['emne'] == emne:
+                                                st.session_state.current_result = {
+                                                    "success": True,
+                                                    "worksheet_pdf": history[0].get('worksheet_pdf_b64'),
+                                                    "source_code": history[0].get('source_code')
+                                                }
+                                                status.update(label="✅ Fant det! Agentene er ferdige.", state="complete")
+                                                found = True
+                                                break
+                                    except:
+                                        pass
+                                    status.write(f"Sjekker oppgavebanken... ({i*10}s)")
+                            
+                            if found:
+                                st.rerun()
+                            else:
+                                st.error("Det tok dessverre for lang tid. Sjekk oppgavebanken manuelt om litt.")
+                        else:
+                            st.error(f"Kunne ikke koble til backend: {str(e)}")
 
         # Vis resultater hvis de finnes
         if "current_result" in st.session_state:
