@@ -209,6 +209,9 @@ def main():
                         file_name=f"MaTultimate_{emne}_{klassetrinn}.pdf",
                         mime="application/pdf"
                     )
+                    st.success("✅ PDF generert!")
+                else:
+                    st.warning("⚠️ PDF-kompilering feilet på serveren.")
                 
                 if res.get("answer_key_pdf"):
                     st.download_button(
@@ -218,8 +221,19 @@ def main():
                         mime="application/pdf"
                     )
                 
+                # ALLTID vis nedlasting av kildekode
+                source = res.get("source_code", "")
+                if source:
+                    st.download_button(
+                        label="📄 Last ned kildekode (.typ)",
+                        data=source,
+                        file_name=f"MaTultimate_{emne}_{klassetrinn}.typ",
+                        mime="text/plain"
+                    )
+                    st.info("💡 Åpne .typ-filen på [typst.app](https://typst.app) for å lage PDF selv.")
+                
                 with st.expander("Se kildekode"):
-                    st.code(res.get("source_code"), language="rust" if "typst" in doc_format.lower() else "latex")
+                    st.code(source, language="rust")
                     
                 st.info("💡 Tips: Du kan dra PDF-filen direkte inn i OneNote for enkel deling med elever.")
 

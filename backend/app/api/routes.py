@@ -81,18 +81,40 @@ async def generate_math_material(request: MaterialRequest, background_tasks: Bac
 
             worksheet_pdf = None
             if config.document_format.value == "typst":
-                # Kjør async kompilering synkront
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                # Bruk subprocess direkte for mer pålitelig kompilering
+                import subprocess
+                import tempfile
+                from pathlib import Path
+                import base64
+                
                 try:
-                    res = loop.run_until_complete(compiler.compile_hybrid(final_code, []))
-                    if res.success:
-                        worksheet_pdf = res.pdf_base64
-                        logger.info("PDF kompilert!")
-                    else:
-                        logger.warning(f"PDF-kompilering feilet: {res.log}")
-                finally:
-                    loop.close()
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        typ_file = Path(tmpdir) / "document.typ"
+                        pdf_file = Path(tmpdir) / "document.pdf"
+                        
+                        typ_file.write_text(final_code, encoding="utf-8")
+                        logger.info(f"Typst-fil skrevet: {len(final_code)} tegn")
+                        
+                        result = subprocess.run(
+                            ["typst", "compile", str(typ_file), str(pdf_file)],
+                            capture_output=True,
+                            timeout=60,
+                            cwd=tmpdir
+                        )
+                        
+                        if pdf_file.exists():
+                            pdf_bytes = pdf_file.read_bytes()
+                            worksheet_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+                            logger.info(f"PDF kompilert! Størrelse: {len(pdf_bytes)} bytes")
+                        else:
+                            logger.error(f"Typst feilet. stdout: {result.stdout.decode()}")
+                            logger.error(f"Typst feilet. stderr: {result.stderr.decode()}")
+                except FileNotFoundError:
+                    logger.error("Typst er ikke installert på serveren!")
+                except subprocess.TimeoutExpired:
+                    logger.error("Typst-kompilering timet ut")
+                except Exception as e:
+                    logger.error(f"Kompileringsfeil: {str(e)}")
             
             save_to_history(config, worksheet_pdf if worksheet_pdf else "", None, final_code)
             logger.info(f"Bakgrunnsjobb FERDIG for: {request.emne}")
@@ -134,4 +156,46 @@ async def fetch_history(limit: int = 10):
 
 @router.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "v2.0-vgs"}
+    return {"status": "healthy", "version": "v2.1-pdf-fix"}
+
+@router.get("/test-typst")
+async def test_typst():
+    """Tester om Typst fungerer på serveren."""
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    
+    test_code = """#set text(size: 12pt)
+= Test
+Dette er en test av Typst-kompilering.
+$ x^2 + y^2 = z^2 $
+"""
+    
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            typ_file = Path(tmpdir) / "test.typ"
+            pdf_file = Path(tmpdir) / "test.pdf"
+            typ_file.write_text(test_code)
+            
+            result = subprocess.run(
+                ["typst", "compile", str(typ_file), str(pdf_file)],
+                capture_output=True,
+                timeout=30
+            )
+            
+            if pdf_file.exists():
+                return {
+                    "status": "ok",
+                    "message": "Typst fungerer!",
+                    "pdf_size": pdf_file.stat().st_size
+                }
+            else:
+                return {
+                    "status": "error",
+                    "stdout": result.stdout.decode(),
+                    "stderr": result.stderr.decode()
+                }
+    except FileNotFoundError:
+        return {"status": "error", "message": "Typst er ikke installert"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
