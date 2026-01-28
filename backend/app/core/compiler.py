@@ -179,7 +179,7 @@ class TypstTemplates:
         topic: str
     ) -> str:
         """Standard header for arbeidsark."""
-        return f"""#set text(lang: "nb", font: "New Computer Modern", size: 11pt)
+        return f"""#set text(lang: "nb", size: 11pt)
 #set page(paper: "a4", margin: 2.5cm)
 #set heading(numbering: "1.1.")
 
@@ -223,7 +223,7 @@ class TypstTemplates:
         topic: str
     ) -> str:
         """Header for fasit-dokument."""
-        return f"""#set text(lang: "nb", font: "New Computer Modern", size: 10pt)
+        return f"""#set text(lang: "nb", size: 10pt)
 #set page(paper: "a4", margin: 2cm)
 
 #align(center)[

@@ -41,13 +41,17 @@ async def generate_math_material(request: MaterialRequest, background_tasks: Bac
             
             final_code = result.raw if hasattr(result, 'raw') else str(result)
             
-            # Fjern markdown fences hvis de finnes
-            if "```" in final_code:
+            # Rens koden for vanlige AI-feil
+            from app.core.sanitizer import sanitize_typst_code
+            if config.document_format.value == "typst":
+                final_code = sanitize_typst_code(final_code)
+            else:
+                # For LaTeX, bare fjern markdown fences
                 import re
                 final_code = re.sub(r'```(?:typst|latex)?\n?', '', final_code)
                 final_code = final_code.replace('```', '').strip()
             
-            logger.info(f"Kode generert ({len(final_code)} tegn), starter kompilering...")
+            logger.info(f"Kode generert og renset ({len(final_code)} tegn), starter kompilering...")
             
             # Kompiler til PDF
             from app.core.compiler import DocumentCompiler, TypstTemplates

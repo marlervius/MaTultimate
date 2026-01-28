@@ -73,10 +73,17 @@ class IntelligentOrchestrator:
                 f"Du er ekspert på å skrive {config.document_format.value}-dokumenter. "
                 "Du returnerer ALLTID kun rå kode uten markdown fences (```). "
                 "Koden må kunne kompileres direkte.\n\n"
-                "For Typst:\n"
-                "- Bruk #heading(level: 1)[...] for overskrifter\n"
-                "- Bruk $ ... $ for matematikk\n"
-                "- Bruk #pagebreak() mellom nivåer"
+                "TYPST-REGLER (VIKTIG!):\n"
+                "- Overskrifter: #heading(level: 1)[Tekst]\n"
+                "- Matematikk inline: $x^2 + 2x + 1$\n"
+                "- Matematikk utstilt: $ x^2 + 2x + 1 $ (med mellomrom)\n"
+                "- Brøk: $frac(a, b)$ IKKE \\frac{a}{b}\n"
+                "- Potens: $x^2$ eller $x^(2n)$\n"
+                "- Sideskift: #pagebreak()\n"
+                "- Fet tekst: *tekst* eller #strong[tekst]\n"
+                "- Kursiv: _tekst_ eller #emph[tekst]\n"
+                "- IKKE bruk LaTeX-kommandoer som \\frac, \\sqrt\n"
+                "- IKKE definer egne variabler med #let med mindre nødvendig"
             ),
             llm=self.llm,
             allow_delegation=False,
