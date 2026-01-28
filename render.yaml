@@ -13,5 +13,5 @@ services:
         sync: false
       - key: DATABASE_URL
         value: sqlite:///./matultimate.db
-    dockerFilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    dockerfile: backend/Dockerfile
+    dockerContext: backend
