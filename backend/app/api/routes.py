@@ -57,64 +57,102 @@ async def generate_math_material(request: MaterialRequest, background_tasks: Bac
             from app.core.compiler import DocumentCompiler, TypstTemplates
             compiler = DocumentCompiler()
             
-            if config.document_format.value == "typst":
-                # Fjern AI-generert preamble hvis den finnes, vi bruker vår egen
-                lines = final_code.split('\n')
-                content_lines = []
-                skip_preamble = True
-                for line in lines:
-                    # Hopp over AI-genererte #set linjer i starten
-                    if skip_preamble and line.strip().startswith('#set'):
-                        continue
-                    skip_preamble = False
-                    content_lines.append(line)
-                
-                content = '\n'.join(content_lines).strip()
-                
-                # Legg til vår preamble
-                preamble = TypstTemplates.worksheet_header(
-                    title=config.emne,
-                    grade=config.klassetrinn,
-                    topic=config.emne
-                )
-                final_code = preamble + "\n" + content
+            # Fjern AI-generert preamble hvis den finnes
+            lines = final_code.split('\n')
+            content_lines = []
+            skip_preamble = True
+            for line in lines:
+                if skip_preamble and line.strip().startswith('#set'):
+                    continue
+                skip_preamble = False
+                content_lines.append(line)
+            
+            content = '\n'.join(content_lines).strip()
+            
+            # Legg til vår preamble
+            preamble = TypstTemplates.worksheet_header(
+                title=config.emne,
+                grade=config.klassetrinn,
+                topic=config.emne
+            )
+            final_code = preamble + "\n" + content
 
             worksheet_pdf = None
-            if config.document_format.value == "typst":
-                # Bruk subprocess direkte for mer pålitelig kompilering
-                import subprocess
-                import tempfile
-                from pathlib import Path
-                import base64
-                
+            figures = []
+            
+            # HYBRID MODE: Generer figurer hvis nødvendig
+            is_hybrid = config.document_format.value == "hybrid"
+            if is_hybrid:
+                logger.info("Hybrid-modus aktivert, genererer figurer...")
                 try:
-                    with tempfile.TemporaryDirectory() as tmpdir:
-                        typ_file = Path(tmpdir) / "document.typ"
-                        pdf_file = Path(tmpdir) / "document.pdf"
-                        
-                        typ_file.write_text(final_code, encoding="utf-8")
-                        logger.info(f"Typst-fil skrevet: {len(final_code)} tegn")
-                        
-                        result = subprocess.run(
-                            ["typst", "compile", str(typ_file), str(pdf_file)],
-                            capture_output=True,
-                            timeout=60,
-                            cwd=tmpdir
-                        )
-                        
-                        if pdf_file.exists():
-                            pdf_bytes = pdf_file.read_bytes()
-                            worksheet_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
-                            logger.info(f"PDF kompilert! Størrelse: {len(pdf_bytes)} bytes")
-                        else:
-                            logger.error(f"Typst feilet. stdout: {result.stdout.decode()}")
-                            logger.error(f"Typst feilet. stderr: {result.stderr.decode()}")
-                except FileNotFoundError:
-                    logger.error("Typst er ikke installert på serveren!")
-                except subprocess.TimeoutExpired:
-                    logger.error("Typst-kompilering timet ut")
+                    figures = orchestrator.generate_figures(config)
+                    logger.info(f"Generert {len(figures)} figurer")
                 except Exception as e:
-                    logger.error(f"Kompileringsfeil: {str(e)}")
+                    logger.warning(f"Figurgenering feilet: {e}")
+                    figures = []
+            
+            # Kompiler PDF
+            import subprocess
+            import tempfile
+            from pathlib import Path
+            import base64
+            
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    tmpdir_path = Path(tmpdir)
+                    typ_file = tmpdir_path / "document.typ"
+                    pdf_file = tmpdir_path / "document.pdf"
+                    
+                    # Opprett figur-mappe hvis hybrid
+                    if figures:
+                        fig_dir = tmpdir_path / "figurer"
+                        fig_dir.mkdir(exist_ok=True)
+                        
+                        # Kompiler TikZ-figurer til PNG
+                        for fig in figures:
+                            logger.info(f"Kompilerer figur: {fig['id']}")
+                            try:
+                                # Kjør async kompilering synkront
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                try:
+                                    fig_result = loop.run_until_complete(
+                                        compiler.compile_latex_figure_to_png(fig['latex'])
+                                    )
+                                    if fig_result.success and fig_result.png_bytes:
+                                        png_path = fig_dir / f"{fig['id']}.png"
+                                        png_path.write_bytes(fig_result.png_bytes)
+                                        logger.info(f"Figur {fig['id']} lagret som PNG")
+                                    else:
+                                        logger.warning(f"Figur {fig['id']} feilet: {fig_result.log}")
+                                finally:
+                                    loop.close()
+                            except Exception as e:
+                                logger.warning(f"Kunne ikke kompilere figur {fig['id']}: {e}")
+                    
+                    typ_file.write_text(final_code, encoding="utf-8")
+                    logger.info(f"Typst-fil skrevet: {len(final_code)} tegn")
+                    
+                    result = subprocess.run(
+                        ["typst", "compile", str(typ_file), str(pdf_file)],
+                        capture_output=True,
+                        timeout=90,
+                        cwd=tmpdir
+                    )
+                    
+                    if pdf_file.exists():
+                        pdf_bytes = pdf_file.read_bytes()
+                        worksheet_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+                        logger.info(f"PDF kompilert! Størrelse: {len(pdf_bytes)} bytes")
+                    else:
+                        logger.error(f"Typst feilet. stdout: {result.stdout.decode()}")
+                        logger.error(f"Typst feilet. stderr: {result.stderr.decode()}")
+            except FileNotFoundError:
+                logger.error("Typst er ikke installert på serveren!")
+            except subprocess.TimeoutExpired:
+                logger.error("Typst-kompilering timet ut")
+            except Exception as e:
+                logger.error(f"Kompileringsfeil: {str(e)}")
             
             save_to_history(config, worksheet_pdf if worksheet_pdf else "", None, final_code)
             logger.info(f"Bakgrunnsjobb FERDIG for: {request.emne}")

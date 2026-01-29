@@ -17,6 +17,7 @@ class ExportFormat(str, Enum):
 class DocumentFormat(str, Enum):
     TYPST = "typst"
     LATEX = "latex"
+    HYBRID = "hybrid"  # Typst med LaTeX/TikZ-figurer
 
 
 class MaterialConfig(BaseModel):
