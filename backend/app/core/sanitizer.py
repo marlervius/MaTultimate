@@ -46,22 +46,25 @@ def sanitize_typst_code(code: str) -> str:
     code = re.sub(r'\s*&\s*"hvis"', ' "hvis"', code)
     code = re.sub(r'\s*&\s*"når"', ' "når"', code)
     
-    # Fiks enheter med mellomrom
-    code = code.replace('" cm"', '"cm"')
-    code = code.replace('" m"', '"m"')
-    code = code.replace('" km"', '"km"')
-    code = code.replace('" kg"', '"kg"')
-    code = code.replace('" g"', '"g"')
-    code = code.replace('" s"', '"s"')
-    code = code.replace('" kr"', '"kr"')
+    # Fiks enheter - legg til mellomrom FØR enhet (tall"enhet" -> tall "enhet")
+    code = re.sub(r'(\d)"([a-zA-Z])', r'\1 "\2', code)
     
-    # Bruk cdot for multiplikasjon (sikrere enn dot)
-    code = re.sub(r'\bdot\b', 'dot.c', code)
+    # Fiks d x -> dif x i integraler
+    code = re.sub(r'\bd\s+x\b', 'dif x', code)
+    code = re.sub(r'\bd\s+t\b', 'dif t', code)
+    code = re.sub(r'\bd\s+y\b', 'dif y', code)
+    
+    # Fiks multiplikasjon: bruk cdot (IKKE dot.c som kan bli doblet)
+    # Først fiks eventuelle dot.c.c feil
+    code = code.replace('dot.c.c', 'cdot')
+    code = code.replace('dot.c', 'cdot')
+    # Erstatt bare frittstående "dot" med cdot (ikke dot.op eller lignende)
+    code = re.sub(r'\bdot\b(?!\.)', 'cdot', code)
     
     # 4. Fiks LaTeX-syntaks som AI ofte blander inn
     code = code.replace('\\frac', 'frac')
     code = code.replace('\\sqrt', 'sqrt')
-    code = code.replace('\\cdot', 'dot.c')
+    code = code.replace('\\cdot', 'cdot')
     code = code.replace('\\times', 'times')
     code = code.replace('\\div', 'div')
     code = code.replace('\\pm', 'plus.minus')
