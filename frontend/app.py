@@ -4,7 +4,7 @@ import base64
 import os
 import time
 from dotenv import load_dotenv
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 # Last inn miljøvariabler
 load_dotenv()
@@ -15,6 +15,65 @@ if not base_url.endswith("/api/v1") and not "/api/v1/" in base_url:
     API_URL = f"{base_url}/api/v1"
 else:
     API_URL = base_url
+
+# Timeout-konfigurasjon
+TIMEOUT_CONFIG = {
+    "generate": 60,
+    "history": 30,
+    "health": 5,
+    "polling_interval": 5,
+    "max_polling_time": 300
+}
+
+def check_backend_health() -> Tuple[bool, str]:
+    """Sjekker om backend er tilgjengelig."""
+    try:
+        response = requests.get(f"{API_URL}/health", timeout=TIMEOUT_CONFIG["health"])
+        if response.status_code == 200:
+            data = response.json()
+            return True, data.get("version", "OK")
+        return False, f"Status {response.status_code}"
+    except requests.exceptions.ConnectionError:
+        return False, "Ingen tilkobling"
+    except requests.exceptions.Timeout:
+        return False, "Timeout"
+    except Exception as e:
+        return False, str(e)
+
+def validate_inputs(klassetrinn: str, emne: str, kompetansemaal: str) -> Tuple[bool, str]:
+    """Validerer brukerinput."""
+    errors = []
+    
+    if not klassetrinn:
+        errors.append("Velg klassetrinn")
+    
+    if not emne or len(emne.strip()) < 2:
+        errors.append("Emne må være minst 2 tegn")
+    elif len(emne) > 100:
+        errors.append("Emne er for langt (maks 100 tegn)")
+    
+    if not kompetansemaal or len(kompetansemaal.strip()) < 10:
+        errors.append("Kompetansemål må være minst 10 tegn")
+    elif len(kompetansemaal) > 2000:
+        errors.append("Kompetansemål er for langt (maks 2000 tegn)")
+    
+    # Sjekk for ugyldige tegn
+    forbidden = ['```', '${', '\\input', '\\include']
+    for char in forbidden:
+        if char in emne.lower() or char in kompetansemaal.lower():
+            errors.append(f"Ugyldig tegn funnet: {char}")
+    
+    return len(errors) == 0, "; ".join(errors) if errors else ""
+
+def retry_request(func, max_retries=3, delay=2):
+    """Prøver en request flere ganger ved feil."""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except requests.exceptions.RequestException as e:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(delay * (attempt + 1))
 
 st.set_page_config(
     page_title="MaTultimate - AI Matematikk for Lærere",
@@ -73,6 +132,15 @@ def main():
         with st.sidebar:
             st.header("🛠️ Innstillinger")
             
+            # Backend status
+            backend_ok, backend_msg = check_backend_health()
+            if backend_ok:
+                st.success(f"🟢 Backend tilkoblet ({backend_msg})")
+            else:
+                st.error(f"🔴 Backend: {backend_msg}")
+            
+            st.divider()
+            
             klassetrinn = st.selectbox(
                 "Klassetrinn / Kurs",
                 ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "1T", "1P", "R1", "R2", "S1", "S2"],
@@ -102,14 +170,18 @@ def main():
                 
                 include_fasit = st.checkbox("Inkluder fasit", value=True)
 
-            generate_button = st.button("🚀 Generer Materiell")
+            generate_button = st.button("🚀 Generer Materiell", disabled=not backend_ok)
+            
+            if not backend_ok:
+                st.caption("⚠️ Backend må være tilkoblet for å generere")
 
         # Hovedområde
         col1, col2 = st.columns([1, 1])
 
         if generate_button:
-            if not emne or not kompetansemaal:
-                st.error("Vennligst fyll inn både emne og kompetansemål.")
+            is_valid, error_msg = validate_inputs(klassetrinn, emne, kompetansemaal)
+            if not is_valid:
+                st.error(f"❌ Valideringsfeil: {error_msg}")
             else:
                 with st.spinner("🧠 Agentene jobber... Dette kan ta 30-60 sekunder."):
                     try:
@@ -244,20 +316,37 @@ def main():
 
     with tab2:
         st.header("📚 Din Oppgavebank")
-        st.write("Her finner du dine tidligere genererte dokumenter.")
         
-        if st.button("🔄 Oppdater historikk"):
-            try:
-                response = requests.get(f"{API_URL}/history", timeout=30)
-                if response.status_code == 200:
-                    st.session_state.history = response.json()
-                else:
-                    st.error("Kunne ikke hente historikk fra serveren.")
-            except Exception as e:
-                st.error(f"Tilkoblingsfeil: {e}")
+        # Søk og filter
+        col_search, col_refresh = st.columns([3, 1])
+        with col_search:
+            search_query = st.text_input("🔍 Søk i historikk", placeholder="Søk etter emne eller tittel...")
+        with col_refresh:
+            st.write("")  # Spacer
+            if st.button("🔄 Oppdater"):
+                try:
+                    response = requests.get(f"{API_URL}/history", timeout=TIMEOUT_CONFIG["history"])
+                    if response.status_code == 200:
+                        st.session_state.history = response.json()
+                        st.success("Historikk oppdatert!")
+                    else:
+                        st.error("Kunne ikke hente historikk fra serveren.")
+                except Exception as e:
+                    st.error(f"Tilkoblingsfeil: {e}")
 
         if "history" in st.session_state and st.session_state.history:
-            for item in st.session_state.history:
+            # Filtrer basert på søk
+            filtered_history = st.session_state.history
+            if search_query:
+                filtered_history = [
+                    h for h in filtered_history 
+                    if search_query.lower() in h.get('emne', '').lower() 
+                    or search_query.lower() in h.get('title', '').lower()
+                ]
+            
+            st.caption(f"Viser {len(filtered_history)} av {len(st.session_state.history)} dokumenter")
+            
+            for item in filtered_history:
                 with st.expander(f"📅 {item['timestamp'][:16]} | {item['title']}"):
                     c1, c2 = st.columns(2)
                     with c1:
@@ -271,11 +360,42 @@ def main():
                                 mime="application/pdf",
                                 key=f"dl_{item['id']}"
                             )
+                        else:
+                            st.warning("PDF ikke generert")
+                        
+                        # Last ned kildekode
+                        if item.get('source_code'):
+                            st.download_button(
+                                label="📄 Last ned .typ",
+                                data=item['source_code'],
+                                file_name=f"{item['title']}.typ",
+                                mime="text/plain",
+                                key=f"src_{item['id']}"
+                            )
                     with c2:
-                        st.write("**Kildekode:**")
-                        st.code(item['source_code'][:200] + "...", language="latex")
+                        st.write("**Kildekode (utdrag):**")
+                        code_preview = item.get('source_code', '')[:300]
+                        if len(item.get('source_code', '')) > 300:
+                            code_preview += "..."
+                        st.code(code_preview, language="rust")
         else:
             st.info("Ingen historikk funnet ennå. Begynn å generere materiell!")
+            
+        # Hjelp-seksjon
+        with st.expander("❓ Hjelp"):
+            st.markdown("""
+            ### Hvordan bruker jeg MaTultimate?
+            1. Velg klassetrinn i sidepanelet
+            2. Skriv inn emne (f.eks. "Derivasjon")
+            3. Lim inn kompetansemål fra LK20
+            4. Klikk "Generer Materiell"
+            
+            ### Hvor lang tid tar generering?
+            Typisk 30-90 sekunder, men kan ta opptil 3 minutter for komplekse oppgaver.
+            
+            ### Hva hvis PDF ikke vises?
+            Last ned .typ-filen og åpne den på [typst.app](https://typst.app)
+            """)
 
 if __name__ == "__main__":
     main()

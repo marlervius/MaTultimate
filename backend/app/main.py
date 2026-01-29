@@ -6,13 +6,21 @@ import uvicorn
 
 app = FastAPI(title="MaTultimate API - VGS Edition")
 
-# CORS - tillat frontend å koble til
+# CORS - tillat spesifikke frontend-domener
+import os
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
+    "https://matultimate.streamlit.app",
+    "https://*.streamlit.app",
+    "http://localhost:8501",
+    "http://localhost:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # I produksjon: spesifiser Streamlit-domenet
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Initialiser database ved oppstart
