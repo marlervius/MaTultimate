@@ -15,12 +15,43 @@ def strip_markdown_fences(code: str) -> str:
     return code.strip()
 
 
+def fix_decimal_commas_in_math(code: str) -> str:
+    """
+    Konverterer norske desimaltall (2,5) til Typst-format (2.5) i matematikkmodus.
+    Komma i Typst math er en separator, ikke desimalskilletegn.
+    """
+    import re
+    
+    def fix_math_block(match):
+        math_content = match.group(1)
+        # Erstatt tall,tall med tall.tall (norsk desimalformat til internasjonal)
+        # Match: digit(s), comma, digit(s) - men ikke hvis det er mellomrom etter komma
+        fixed = re.sub(r'(\d),(\d)', r'\1.\2', math_content)
+        return f'${fixed}$'
+    
+    # Fiks inline math $...$
+    code = re.sub(r'\$([^$]+)\$', fix_math_block, code)
+    
+    # Fiks også utstilt math $ ... $ (med mellomrom)
+    def fix_display_math(match):
+        math_content = match.group(1)
+        fixed = re.sub(r'(\d),(\d)', r'\1.\2', math_content)
+        return f'$ {fixed} $'
+    
+    code = re.sub(r'\$\s+([^$]+)\s+\$', fix_display_math, code)
+    
+    return code
+
+
 def sanitize_typst_code(code: str) -> str:
     """
     Renser og fikser vanlige feil i AI-generert Typst-kode.
     """
     if not code:
         return ""
+    
+    # 0. Fiks desimaltall med komma -> punktum i matematikkmodus
+    code = fix_decimal_commas_in_math(code)
     
     # 1. Fjern markdown fences
     code = strip_markdown_fences(code)
