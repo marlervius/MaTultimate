@@ -156,7 +156,56 @@ async def fetch_history(limit: int = 10):
 
 @router.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "v2.1-pdf-fix"}
+    return {"status": "healthy", "version": "v3.0-pro-templates"}
+
+@router.post("/export/word")
+async def export_to_word(request: MaterialRequest):
+    """Eksporterer generert innhold til Word-format."""
+    try:
+        from app.tools.word_exporter import is_word_export_available, latex_to_word
+        import tempfile
+        import base64
+        
+        if not is_word_export_available():
+            raise HTTPException(status_code=503, detail="Word-eksport er ikke tilgjengelig")
+        
+        # Hent siste genererte dokument for dette emnet
+        history = get_history(limit=10)
+        matching = [h for h in history if h.get('emne') == request.emne]
+        
+        if not matching:
+            raise HTTPException(status_code=404, detail="Ingen generert innhold funnet for dette emnet")
+        
+        source_code = matching[0].get('source_code', '')
+        
+        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp:
+            # For nå, eksporter kildekoden som tekst i Word
+            # TODO: Implementer Typst-til-Word konvertering
+            from docx import Document
+            doc = Document()
+            doc.add_heading(f"{request.emne} - {request.klassetrinn}", 0)
+            
+            # Legg til innhold
+            for line in source_code.split('\n'):
+                if line.strip():
+                    doc.add_paragraph(line)
+            
+            doc.save(tmp.name)
+            
+            with open(tmp.name, 'rb') as f:
+                word_bytes = f.read()
+        
+        return {
+            "success": True,
+            "word_b64": base64.b64encode(word_bytes).decode("utf-8"),
+            "filename": f"{request.emne}_{request.klassetrinn}.docx"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Word-eksport feilet: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/test-typst")
 async def test_typst():

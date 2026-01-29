@@ -170,50 +170,172 @@ class DocumentCompiler:
 # =============================================================================
 
 class TypstTemplates:
-    """Ferdiglagde Typst-maler for matematikkdokumenter."""
+    """Profesjonelle Typst-maler som ligner lærebøker."""
     
     @staticmethod
     def worksheet_header(
         title: str,
         grade: str,
-        topic: str
+        topic: str,
+        school_name: str = "",
+        show_date: bool = True
     ) -> str:
-        """Standard header for arbeidsark."""
+        """Profesjonell lærebok-stil header."""
+        from datetime import datetime
+        date_str = datetime.now().strftime("%d.%m.%Y") if show_date else ""
+        
         return f"""#set text(lang: "nb", size: 11pt)
-#set page(paper: "a4", margin: 2.5cm)
+#set page(
+  paper: "a4",
+  margin: (top: 2.5cm, bottom: 2cm, left: 2.5cm, right: 2.5cm),
+  header: context {{
+    if counter(page).get().first() > 1 [
+      #set text(size: 9pt, fill: gray)
+      #grid(
+        columns: (1fr, 1fr),
+        align(left)[{topic}],
+        align(right)[{grade}]
+      )
+      #line(length: 100%, stroke: 0.5pt + gray)
+    ]
+  }},
+  footer: context {{
+    set text(size: 9pt, fill: gray)
+    grid(
+      columns: (1fr, 1fr, 1fr),
+      align(left)[{date_str}],
+      align(center)[#counter(page).display("1 / 1", both: true)],
+      align(right)[MaTultimate]
+    )
+  }}
+)
 #set heading(numbering: "1.1.")
+#set par(justify: true, leading: 0.65em)
 
-// Definisjon av stiler for bokser
-#let box_style(title, body, color) = {{
-  rect(
+// === NIVÅ-IKONER ===
+#let nivaa_ikon(level) = {{
+  if level == 1 {{ text(fill: green)[●○○] }}
+  else if level == 2 {{ text(fill: orange)[●●○] }}
+  else {{ text(fill: red)[●●●] }}
+}}
+
+// === OPPGAVEBOKSER (Lærebok-stil) ===
+#let oppgave_box(nummer, body, nivaa: none) = {{
+  let header_content = if nivaa != none {{
+    grid(columns: (auto, 1fr), gutter: 8pt,
+      text(weight: "bold", fill: blue.darken(20%))[Oppgave #nummer],
+      align(right)[#nivaa_ikon(nivaa)]
+    )
+  }} else {{
+    text(weight: "bold", fill: blue.darken(20%))[Oppgave #nummer]
+  }}
+  
+  block(
     width: 100%,
-    fill: color.lighten(95%),
-    stroke: 0.5pt + color,
     inset: 12pt,
     radius: 4pt,
-    stack(
-      spacing: 8pt,
-      text(weight: "bold", size: 1.1em, fill: color.darken(30%))[#title],
+    fill: blue.lighten(95%),
+    stroke: (left: 3pt + blue),
+    stack(spacing: 8pt, header_content, body)
+  )
+}}
+
+#let eksempel_box(title, body) = {{
+  block(
+    width: 100%,
+    inset: 12pt,
+    radius: 4pt,
+    fill: gray.lighten(90%),
+    stroke: (left: 3pt + gray.darken(20%)),
+    stack(spacing: 8pt,
+      text(weight: "bold", fill: gray.darken(40%))[📖 #title],
       body
     )
   )
 }}
 
-#let oppgave(body) = box_style("Oppgave", body, blue)
-#let utfordring(body) = box_style("Utfordring", body, red)
-#let eksempel(title: "Eksempel", body) = box_style(title, body, gray)
-#let definisjon(body) = box_style("Definisjon", body, green)
-#let teorem(title: "Teorem", body) = box_style(title, body, red)
-#let hint(body) = box_style("Hint", body, orange)
+#let definisjon_box(body) = {{
+  block(
+    width: 100%,
+    inset: 12pt,
+    radius: 4pt,
+    fill: green.lighten(95%),
+    stroke: (left: 3pt + green.darken(20%)),
+    stack(spacing: 8pt,
+      text(weight: "bold", fill: green.darken(30%))[📌 Definisjon],
+      body
+    )
+  )
+}}
 
-// Tittel
-#align(center)[
-  #text(size: 1.5em, weight: "bold")[{title}]
+#let hint_box(body) = {{
+  block(
+    width: 100%,
+    inset: 10pt,
+    radius: 4pt,
+    fill: yellow.lighten(90%),
+    stroke: 0.5pt + orange,
+    stack(spacing: 6pt,
+      text(weight: "bold", size: 0.9em, fill: orange.darken(20%))[💡 Hint],
+      text(size: 0.95em)[#body]
+    )
+  )
+}}
+
+#let formel_box(body) = {{
+  align(center)[
+    #block(
+      inset: 12pt,
+      radius: 4pt,
+      fill: blue.lighten(97%),
+      stroke: 1pt + blue.lighten(50%),
+      body
+    )
+  ]
+}}
+
+// Bakoverkompatibilitet
+#let oppgave(body) = oppgave_box("", body)
+#let utfordring(body) = oppgave_box("", body, nivaa: 3)
+#let eksempel(title: "Eksempel", body) = eksempel_box(title, body)
+#let definisjon(body) = definisjon_box(body)
+#let hint(body) = hint_box(body)
+
+// === NIVÅ-OVERSKRIFTER ===
+#let nivaa_header(level) = {{
+  let (title, color, desc) = if level == 1 {{
+    ("Nivå 1", green, "Grunnleggende")
+  }} else if level == 2 {{
+    ("Nivå 2", orange, "Middels")
+  }} else {{
+    ("Nivå 3", red, "Utfordring")
+  }}
   
-  #text(size: 1.1em, style: "italic")[{grade} · {topic}]
-]
+  v(1.5em)
+  block(
+    width: 100%,
+    inset: (y: 8pt),
+    stroke: (bottom: 2pt + color),
+    grid(columns: (auto, 1fr), gutter: 12pt,
+      text(size: 1.3em, weight: "bold", fill: color)[#nivaa_ikon(level) #title],
+      align(right + horizon)[#text(fill: gray, style: "italic")[#desc]]
+    )
+  )
+  v(0.5em)
+}}
 
-#v(1em)
+// === TITTELSIDE ===
+#align(center)[
+  #v(2em)
+  #text(size: 2em, weight: "bold")[{title}]
+  #v(0.5em)
+  #line(length: 60%, stroke: 1pt + gray)
+  #v(0.5em)
+  #text(size: 1.2em)[{grade}]
+  #v(0.3em)
+  #text(size: 1.1em, style: "italic", fill: gray)[{topic}]
+  #v(2em)
+]
 """
     
     @staticmethod
@@ -222,20 +344,63 @@ class TypstTemplates:
         grade: str,
         topic: str
     ) -> str:
-        """Header for fasit-dokument."""
+        """Profesjonell fasit-header."""
+        from datetime import datetime
+        date_str = datetime.now().strftime("%d.%m.%Y")
+        
         return f"""#set text(lang: "nb", size: 10pt)
-#set page(paper: "a4", margin: 2cm)
+#set page(
+  paper: "a4",
+  margin: (top: 2cm, bottom: 2cm, left: 2cm, right: 2cm),
+  header: context {{
+    if counter(page).get().first() > 1 [
+      #set text(size: 8pt, fill: gray)
+      #grid(
+        columns: (1fr, 1fr),
+        align(left)[FASIT - {topic}],
+        align(right)[Kun for lærerbruk]
+      )
+      #line(length: 100%, stroke: 0.5pt + gray)
+    ]
+  }},
+  footer: context {{
+    set text(size: 8pt, fill: gray)
+    align(center)[Side #counter(page).display() av #counter(page).final().first()]
+  }}
+)
+#set par(justify: true)
 
+// Løsningsboks
+#let losning(oppgave_nr, body) = {{
+  block(
+    width: 100%,
+    inset: 10pt,
+    radius: 3pt,
+    fill: green.lighten(95%),
+    stroke: (left: 2pt + green),
+    stack(spacing: 6pt,
+      text(weight: "bold", size: 0.9em, fill: green.darken(30%))[✓ Oppgave #oppgave_nr],
+      body
+    )
+  )
+}}
+
+// Tittel
 #align(center)[
-  #text(size: 1.3em, weight: "bold")[Fasit: {title}]
-  
-  #text(size: 1em, style: "italic", fill: gray)[{grade} · {topic}]
-  
-  #v(0.5em)
-  #text(size: 0.9em, fill: red)[Kun for lærerbruk]
+  #block(
+    width: 100%,
+    inset: 16pt,
+    fill: red.lighten(95%),
+    stroke: 1pt + red.lighten(50%),
+    radius: 4pt,
+    stack(spacing: 8pt,
+      text(size: 1.4em, weight: "bold")[📋 Fasit: {title}],
+      text(fill: gray)[{grade} · {topic}],
+      text(size: 0.9em, fill: red)[⚠️ Kun for lærerbruk · {date_str}]
+    )
+  )
 ]
 
-#line(length: 100%, stroke: 0.5pt)
 #v(1em)
 """
     
